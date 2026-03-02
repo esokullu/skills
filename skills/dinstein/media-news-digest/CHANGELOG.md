@@ -1,5 +1,122 @@
 # Changelog
 
+## v2.1.1 - 2026-03-02
+
+### Fixed
+- SKILL.md: fix source counts (65 total), add all env vars (TWITTERAPI_IO_KEY, BRAVE_API_KEYS, TAVILY_API_KEY, TWITTER_API_BACKEND), list all 14 scripts, update optionalBins, fix credentialAccess description
+
+## v2.1.0 - 2026-03-01
+
+### Added
+- `enrich-articles.py`: full-text enrichment for top articles (synced from tech v3.13.0)
+- `run-pipeline.py`: --enrich flag for article enrichment phase
+- `merge-sources.py`: GitHub trending support (inactive for media, no GitHub source)
+
+## v2.0.4 - 2026-03-01
+
+### Fixed
+- Strengthen quality_score ordering instruction in digest prompt (CRITICAL tag)
+
+## v2.0.3 - 2026-03-01
+
+### Changed
+- Sync fetch-web.py from tech-news-digest v3.11.0: add Tavily Search as alternative web search backend (TAVILY_API_KEY)
+
+## v2.0.2 - 2026-03-01
+
+### Added
+- Show quality score (🔥) prefix on each article in digest output
+- Articles strictly ordered by quality_score descending within each topic
+
+## v2.0.1 - 2026-02-28
+
+### Changed
+- Sync from tech-news-digest v3.10.3:
+  - `fetch-web.py`: multi-key Brave API support with quota-aware fallback
+  - `merge-sources.py`: exempt multi-author platforms from per-topic domain limits
+  - `config_loader.py`: prefixed overlay config files
+
+## v2.0.0 - 2026-02-25
+
+### Added
+- `generate-pdf.py`: PDF generation with Chinese typography and emoji support (synced from tech-news-digest v3.10.0)
+- `send-email.py`: Proper MIME email with HTML body + PDF attachment (synced from tech-news-digest v3.10.1)
+- Updated `sanitize-html.py` from tech-news-digest
+
+### Changed
+- Email delivery: switch from mail/msmtp to send-email.py with PDF attachment
+- Digest prompt: auto-attach PDF to email delivery
+
+## v1.9.4 - 2026-02-24
+
+### Fixed
+- **Root cause fix**: Remove `china` topic tag from general RSS sources (THR, Deadline, Variety, etc.) — was causing every article from these feeds to be classified as China news
+- China topic now only assigned by dedicated sources: THR China, Variety Asia, Deadline China tag feeds
+
+## v1.9.3 - 2026-02-24
+
+### Fixed
+- China section: add strict verification rule — agent must verify Hollywood films actually released in mainland China before including
+- China section: global box office reports mentioning China numbers → Box Office section, not China
+
+## v1.9.2 - 2026-02-24
+
+### Fixed
+- China topic: tighten must_include keywords to avoid false positives (Korea/Japan/secondary market mentions)
+- China topic: add exclusions for other Asian markets
+- Digest prompt: add same-story-different-dates dedup rule
+- Digest prompt: add explicit China section filtering rules
+
+## v1.9.1 - 2026-02-24
+
+### Added
+- 12 new RSS sources: ET Online, Den of Geek, The Direct, CinemaBlend, MovieWeb, CBR, Roger Ebert, The Film Stage, No Film School, What's on Netflix, Decider, Anime News Network
+- 5 new Reddit sources: r/entertainment, r/netflix, r/marvelstudios, r/DC_Cinematic, r/anime
+- 4 new Twitter KOLs: @etnow, @TheAcademy, @letterboxd, @A24
+- Re-enabled: Vulture, Entertainment Weekly
+
+### Changed
+- Total sources: 44 → 65 (64 enabled)
+
+## v1.9.0 - 2026-02-24
+
+### Changed
+- **Major sync** from tech-news-digest v3.9.0: all shared scripts updated
+- fetch-twitter.py: pagination, rate limiter, retry, dedup (v3.8.0+v3.9.0)
+- merge-sources.py: URL dedup, improved scoring
+- run-pipeline.py: --skip/--reuse-dir, parallel execution improvements
+- fetch-web.py: Brave cache, rate limit handling
+- fetch-rss.py: RSS cache improvements
+- source-health.py: health tracking updates
+- summarize-merged.py: output format improvements
+- digest-prompt: switch to unified `run-pipeline.py`, add quality_score selection rule, Reddit format
+
+## v1.8.5 - 2026-02-24
+
+### Changed
+- Sync fetch-twitter.py from tech-news-digest: dual backend (official X API + twitterapi.io), auto fallback, 3-worker concurrency, progress logging
+- Sync test-pipeline.sh: --only/--skip/--topics/--ids/--twitter-backend filtering, progress stats, timing
+
+## v1.8.4 - 2026-02-24
+
+### Changed
+- Enable all 14 Twitter/X sources (were all disabled)
+
+## v1.8.3 - 2026-02-24
+
+### Changed
+- Title/subject: 中文标题 `🎬 每日影视日报 — YYYY-MM-DD`（对齐 tech-news-digest 风格）
+- Email h1 + Discord h1 + email subject 统一使用中文标题
+
+## v1.8.2 - 2026-02-22
+
+### Changed
+- Align HTML templates with tech-news-digest: add GitHub repo link in footer
+- Email footer: repo link as clickable `<a>` tag
+- Discord footer: add repo link with embed suppression `<>`
+- Email style guidelines: add headings/lists/footer/no-images/no-tables rules
+- Discord template: add delivery section (channel vs DM)
+
 ## v1.8.1 - 2026-02-22
 
 ### Changed

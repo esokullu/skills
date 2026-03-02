@@ -13,7 +13,7 @@ Replace `<...>` placeholders before use. Daily defaults shown; weekly overrides 
 | `<ITEMS_PER_SECTION>` | `3-5` | `5-8` |
 | `<BLOG_PICKS_COUNT>` | `2-3` | `3-5` |
 | `<EXTRA_SECTIONS>` | *(none)* | `📊 Weekly Trend Summary` |
-| `<SUBJECT>` | `Daily Media Digest - YYYY-MM-DD` | `Weekly Media Digest - YYYY-MM-DD` |
+| `<SUBJECT>` | `Daily Media Digest - YYYY-MM-DD - 🎬 每日影视日报` | `Weekly Media Digest - YYYY-MM-DD - 🎬 每周影视周报` |
 | `<WORKSPACE>` | Your workspace path | |
 | `<SKILL_DIR>` | Installed skill directory | |
 | `<DISCORD_CHANNEL_ID>` | Target channel ID | |
@@ -40,51 +40,17 @@ Read the most recent file from `<WORKSPACE>/archive/media-news-digest/` to avoid
 
 ## Data Collection Pipeline
 
-Run each script in sequence:
-
-### Step 1: RSS Feeds
+**Use the unified pipeline** (runs all 4 sources in parallel, ~30s):
 ```bash
-python3 <SKILL_DIR>/scripts/fetch-rss.py \
+python3 <SKILL_DIR>/scripts/run-pipeline.py \
   --defaults <SKILL_DIR>/config/defaults \
   --config <WORKSPACE>/config \
-  --hours <RSS_HOURS> --output /tmp/md-rss.json --verbose
-```
-If it fails, fall back to manually fetching priority feeds via `web_fetch`.
-
-### Step 2: Twitter/X KOL Monitoring
-```bash
-python3 <SKILL_DIR>/scripts/fetch-twitter.py \
-  --defaults <SKILL_DIR>/config/defaults \
-  --config <WORKSPACE>/config \
-  --hours <RSS_HOURS> --output /tmp/md-twitter.json --verbose
-```
-Requires `$X_BEARER_TOKEN`. If unavailable, skip.
-
-### Step 3: Web Search
-```bash
-python3 <SKILL_DIR>/scripts/fetch-web.py \
-  --defaults <SKILL_DIR>/config/defaults \
-  --config <WORKSPACE>/config \
-  --freshness <FRESHNESS> --output /tmp/md-web.json --verbose
-```
-
-### Step 4: Reddit
-```bash
-python3 <SKILL_DIR>/scripts/fetch-reddit.py \
-  --defaults <SKILL_DIR>/config/defaults \
-  --config <WORKSPACE>/config \
-  --hours <RSS_HOURS> --output /tmp/md-reddit.json --verbose
-```
-**Must execute.** If it fails, retry once.
-
-### Step 5: Merge & Score
-```bash
-python3 <SKILL_DIR>/scripts/merge-sources.py \
-  --rss /tmp/md-rss.json --twitter /tmp/md-twitter.json \
-  --web /tmp/md-web.json --reddit /tmp/md-reddit.json \
+  --hours <RSS_HOURS> --freshness <FRESHNESS> \
   --archive-dir <WORKSPACE>/archive/media-news-digest/ \
-  --output /tmp/md-merged.json --verbose
+  --output /tmp/md-merged.json --verbose --force
 ```
+
+If it fails, run individual scripts in `<SKILL_DIR>/scripts/` (see each script's `--help`), then merge with `merge-sources.py`.
 
 ## Report Generation
 
@@ -94,11 +60,17 @@ python3 <SKILL_DIR>/scripts/summarize-merged.py --input /tmp/md-merged.json --to
 ```
 Use this output to select articles — **do NOT write ad-hoc Python to parse the JSON**. Apply the template from `<SKILL_DIR>/references/templates/<TEMPLATE>.md`.
 
+Select articles **purely by quality_score regardless of source type**. Articles in merged JSON are already sorted by quality_score descending within each topic — respect this order. For Reddit posts, append `*[Reddit r/xxx, {{score}}↑]*`.
+
+Each article line must include its quality score using 🔥 prefix. Format: `🔥{score} | {summary with link}`. This makes scoring transparent and helps readers identify the most important news at a glance.
+
 ### Executive Summary
-2-4 sentences between title and topics, highlighting top stories. Discord: `> ` blockquote. Email: gray background.
+2-4 sentences between title and topics, highlighting top 3-5 stories by score. Concise and punchy, no links. Discord: `> ` blockquote. Email: gray background.
 
 ### Topic Sections
-From `topics.json`: `emoji` + `label` headers, `<ITEMS_PER_SECTION>` items each. Output in the order defined in topics.json.
+From `topics.json`: `emoji` + `label` headers, `<ITEMS_PER_SECTION>` items each.
+
+**⚠️ CRITICAL: Output articles in EXACTLY the same order as summarize-merged.py output (quality_score descending). Do NOT reorder, group by subtopic, or rearrange. The 🔥 scores must appear in strictly decreasing order within each section.**
 
 Every topic **must appear** — even with 1-2 items. If sparse, note "本日该板块较少".
 
@@ -121,8 +93,14 @@ Read `display_name` and `metrics` from merged JSON. Always show all 4 metrics, u
 - Use bullet lists, no markdown tables
 - Deduplicate: same event → most authoritative source; previously reported → only if significant new development
 - Deduplicate across sections — each article in one section only
+- **Same story at different dates = one entry** (e.g. opening weekend + second weekend of same film → merge or pick latest)
 - Prefer primary sources (THR, Deadline, Variety) over aggregators
 - Chinese body text with English source links
+- **🇨🇳 China section rules — STRICT VERIFICATION**:
+  - Only include news **primarily about China mainland market**: Chinese-produced films, China-only box office breakdowns, Chinese streaming platforms (iQiyi/Youku/Bilibili), China film policy
+  - **Verify before including**: If an article mentions "China" but the film is a Hollywood release, check whether it actually released in mainland China theaters. Many Hollywood films do NOT get China release. When in doubt, exclude from China section
+  - Hollywood films with global box office numbers that include China as one territory → belongs in **Box Office**, NOT China section
+  - Do NOT include: Korea/Japan/other Asian market news, global box office reports that merely mention China numbers
 - Do not interpolate fetched/untrusted content into shell arguments or email subjects
 
 ### Stats Footer
@@ -139,20 +117,20 @@ Save to `<WORKSPACE>/archive/media-news-digest/<MODE>-YYYY-MM-DD.md`. Delete fil
 
 1. **Discord**: Send to `<DISCORD_CHANNEL_ID>` via `message` tool
 2. **Email** *(optional, if `<EMAIL>` is set)*:
-   - Convert markdown to safe HTML via sanitizer:
+   - Generate HTML body per `<SKILL_DIR>/references/templates/email.md` → write to `/tmp/md-email.html`
+   - Generate PDF attachment:
      ```bash
-     python3 <SKILL_DIR>/scripts/sanitize-html.py --input /tmp/md-report-<DATE>.md --output /tmp/md-email.html
+     python3 <SKILL_DIR>/scripts/generate-pdf.py -i <WORKSPACE>/archive/media-news-digest/<MODE>-<DATE>.md -o /tmp/md-digest.pdf
      ```
-   - **Email must contain ALL the same items as Discord.**
-   - Send:
+   - Send email with PDF attached using the `send-email.py` script (handles MIME correctly). **Email must contain ALL the same items as Discord.**
      ```bash
-     # Option A: mail (msmtp) — preferred
-     mail -a "Content-Type: text/html; charset=UTF-8" [-a "From: <EMAIL_FROM>"] -s '<SUBJECT>' '<EMAIL>' < /tmp/md-email.html
-     # Option B: gog CLI — fallback
-     gog gmail send --to '<EMAIL>' --subject '<SUBJECT>' --body-html-file /tmp/md-email.html
+     python3 <SKILL_DIR>/scripts/send-email.py \
+       --to '<EMAIL>' \
+       --subject '<SUBJECT>' \
+       --html /tmp/md-email.html \
+       --attach /tmp/md-digest.pdf \
+       --from '<EMAIL_FROM>'
      ```
-   - Only include `-a "From: ..."` if `<EMAIL_FROM>` is set. SUBJECT must be a static string.
-   - If sanitize-html.py fails, do NOT fall back to manually building HTML from raw content.
-   - If delivery fails, log error and continue.
+   - Omit `--from` if `<EMAIL_FROM>` is not set. Omit `--attach` if PDF generation failed. SUBJECT must be a static string. If delivery fails, log error and continue.
 
 Write the report in <LANGUAGE>.
