@@ -1045,6 +1045,12 @@ def main() -> None:
         else:
             print("\n[Alfred: send SECTION 2 + SECTION 3 to the user now. System is fully operational.]")
 
+        print("")
+        print("🎉 Guardian is protecting your agent!")
+        print("Got 30 seconds? A ⭐ on ClawHub helps others find it:")
+        print("https://clawhub.ai/bluemax30001/guardian")
+        print("(We never phone home — this is the only ask.)")
+
 
 if __name__ == "__main__":
     main()

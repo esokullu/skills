@@ -1,22 +1,51 @@
 ---
 name: clawguardian
 description: One layer in a multi-layer security stack for OpenClaw agents. Intercepts prompt injection, exfiltration attempts, tool abuse, and social engineering before they reach the model. Use alongside OpenClaw's built-in capability restrictions for defense-in-depth.
-version: 2.3.0
+version: 2.3.4
+homepage: https://github.com/bluemax30001/guardian
 metadata:
   openclaw:
     requires:
       bins:
         - python3
       env:
-        - GUARDIAN_WORKSPACE
-        - GUARDIAN_CONFIG
-        - OPENCLAW_WORKSPACE
-        - OPENCLAW_CONFIG_PATH
+        required: []
+        optional:
+          - GUARDIAN_WORKSPACE
+          - GUARDIAN_CONFIG
+          - OPENCLAW_WORKSPACE
+          - OPENCLAW_CONFIG_PATH
+        never_required:
+          - STRIPE_SECRET_KEY
+          - STRIPE_WEBHOOK_SECRET
     permissions:
       - read_workspace
       - write_workspace
       - shell_optional
       - network_optional
+    optional_capabilities:
+      - name: dashboard_http_server
+        description: "Local HTTP dashboard on port 8080 (serve.py). Disabled by default. Start manually or via systemd — never auto-starts on install."
+        enabled_by_default: false
+        how_to_enable: "python3 scripts/serve.py --port 8080"
+      - name: billing_stripe
+        description: "Pro tier Stripe billing integration. Completely inactive unless STRIPE_* env vars are set. Safe to ignore for free tier."
+        enabled_by_default: false
+        how_to_enable: "Set pro_tier.enabled=true in config.json and set STRIPE_* env vars"
+      - name: webhook_integration
+        description: "Inbound webhook endpoint for external threat reports. Disabled by default."
+        enabled_by_default: false
+        how_to_enable: "Configure webhook section in config.json"
+      - name: cron_jobs
+        description: "Periodic scanning cron jobs. Opt-in only — run onboard.py --setup-crons explicitly."
+        enabled_by_default: false
+        how_to_enable: "python3 scripts/onboard.py --setup-crons"
+    install_transparency:
+      activation_marker: ".guardian-activate-pending written by install.sh. Delete this file to prevent auto-onboarding on next OpenClaw load."
+      data_egress: "None by default. All scan data stays in local guardian.db. Webhooks and HTTP server are opt-in."
+      credentials: "No credentials required. Stripe keys only needed for optional Pro billing."
+      audit_exports: "audit_exports/ directory is excluded from all published packages (.clawhubignore). Never shipped."
+      definitions: "definitions/*.json contain threat-detection regex patterns — these are detection signatures, not attack payloads. Equivalent to antivirus virus definition databases."
 ---
 
 # Guardian
@@ -136,3 +165,7 @@ and logged to the database.
 
 Signatures cover: prompt injection, credential patterns (API keys, tokens),
 data exfiltration attempts, tool abuse patterns, and social engineering tactics.
+
+### Source Trust Levels
+
+Guardian assigns every scan a trust level based on the source channel and message role. There are four levels: **0 – internal** (cron jobs, workspace files, system prompts) is never blocked; **1 – owner** (Telegram) is flagged for review but never blocked; **2 – semi-trusted** (email, unknown sources) is blocked only when the threat score reaches 70 or above; **3 – external** (webhooks) is blocked at a lower threshold of 50 or above. The role of the message can adjust the effective trust level: `system` messages shift one step toward internal, while `tool` results shift one step toward external. This prevents false positives on internal/cron content that may legitimately reference injection-like phrases (for example, in log output or documentation).

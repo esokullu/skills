@@ -524,6 +524,196 @@ def cmd_report(conn: sqlite3.Connection, as_json: bool, deliver: bool = False) -
                 print(f"  - {category}: {count}")
 
 
+_OPENCLAW_CFG = Path.home() / ".openclaw" / "openclaw.json"
+
+_ADMIN_AUDIT_ISSUES = [
+    {
+        "key": ("gateway", "rateLimit", "enabled"),
+        "severity": "critical",
+        "title": "Rate Limiting",
+        "description": "No rate limit — API vulnerable to DoS",
+        "fix_cmd": "openclaw config set gateway.rateLimit.enabled true",
+        "safe": True,
+        "points": 20,
+    },
+    {
+        "key": ("tools", "allowlist"),
+        "severity": "critical",
+        "title": "Tool Execution",
+        "description": "External tool execution unrestricted",
+        "fix_cmd": None,  # Requires manual list — not auto-fixable
+        "safe": False,
+        "points": 20,
+    },
+    {
+        "key": ("models", "allowlist"),
+        "severity": "medium",
+        "title": "Model Allowlist",
+        "description": "Any model can be used",
+        "fix_cmd": None,  # Requires manual list — not auto-fixable
+        "safe": False,
+        "points": 10,
+    },
+    {
+        "key": ("sessions", "timeout"),
+        "severity": "medium",
+        "title": "Session Timeout",
+        "description": "Sessions never expire",
+        "fix_cmd": "openclaw config set sessions.timeout 3600",
+        "safe": True,
+        "points": 10,
+    },
+    {
+        "key": ("logging", "audit"),
+        "severity": "medium",
+        "title": "Audit Logging",
+        "description": "No forensic trail",
+        "fix_cmd": "openclaw config set logging.audit true",
+        "safe": True,
+        "points": 10,
+    },
+]
+
+
+def _get_nested_cfg(d: Dict[str, Any], *keys: str) -> Any:
+    for k in keys:
+        if not isinstance(d, dict):
+            return None
+        d = d.get(k)  # type: ignore[assignment]
+    return d
+
+
+def _is_cfg_set(cfg: Dict[str, Any], key_path: tuple) -> bool:
+    val = _get_nested_cfg(cfg, *key_path)
+    if val is None:
+        return False
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, (list, dict)):
+        return len(val) > 0
+    return bool(val)
+
+
+def _load_openclaw_cfg() -> Dict[str, Any]:
+    try:
+        if _OPENCLAW_CFG.exists():
+            return json.loads(_OPENCLAW_CFG.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return {}
+
+
+def _compute_score(openclaw_cfg: Dict[str, Any]) -> int:
+    score = 100
+    for issue in _ADMIN_AUDIT_ISSUES:
+        if not _is_cfg_set(openclaw_cfg, issue["key"]):
+            score -= issue["points"]
+    return score
+
+
+def _grade(score: int) -> str:
+    if score >= 90:
+        return "A"
+    if score >= 75:
+        return "B"
+    if score >= 60:
+        return "C"
+    if score >= 45:
+        return "D"
+    return "F"
+
+
+def cmd_fix(as_json: bool, dry_run: bool) -> None:
+    """Show config audit issues and (optionally) apply safe fixes."""
+    openclaw_cfg = _load_openclaw_cfg()
+    before_score = _compute_score(openclaw_cfg)
+
+    # Identify open issues
+    open_issues = [
+        iss for iss in _ADMIN_AUDIT_ISSUES
+        if not _is_cfg_set(openclaw_cfg, iss["key"])
+    ]
+    fixable = [iss for iss in open_issues if iss["safe"] and iss["fix_cmd"]]
+    manual = [iss for iss in open_issues if not (iss["safe"] and iss["fix_cmd"])]
+
+    if as_json:
+        render_json({
+            "before_score": before_score,
+            "before_grade": _grade(before_score),
+            "open_issues": [{"title": i["title"], "severity": i["severity"], "fix_cmd": i["fix_cmd"], "safe": i["safe"]} for i in open_issues],
+            "dry_run": dry_run,
+        })
+        return
+
+    print(colorize(f"Config Audit — Score: {before_score}/100 ({_grade(before_score)})", CYAN))
+    print()
+
+    if not open_issues:
+        print(colorize("✅ No issues found — config looks good!", GREEN))
+        return
+
+    if open_issues:
+        print(colorize("Issues:", YELLOW))
+        for iss in open_issues:
+            col = RED if iss["severity"] == "critical" else YELLOW
+            fix_label = f"  Fix: {iss['fix_cmd']}" if iss["fix_cmd"] else "  Fix: manual — set in openclaw.json"
+            auto = " (auto-fixable)" if iss["safe"] and iss["fix_cmd"] else " (manual fix required)"
+            print(f"  {colorize(iss['title'], col)} [{iss['severity']}]{auto}")
+            print(f"       {iss['description']}")
+            print(f"  {colorize(fix_label, col)}")
+            print()
+
+    if not fixable:
+        print(colorize("No safe auto-fixable items found. See above for manual steps.", YELLOW))
+        return
+
+    if dry_run:
+        print(colorize("[DRY RUN] Would run the following commands:", CYAN))
+        for iss in fixable:
+            print(f"  $ {iss['fix_cmd']}")
+        after_score = before_score + sum(iss["points"] for iss in fixable)
+        print()
+        print(f"  Before: {before_score}/100 ({_grade(before_score)})")
+        print(f"  After:  {after_score}/100 ({_grade(after_score)})")
+        return
+
+    # Apply fixes
+    applied = []
+    failed = []
+    for iss in fixable:
+        try:
+            result = subprocess.run(
+                iss["fix_cmd"].split(),
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode == 0:
+                applied.append(iss)
+            else:
+                failed.append((iss, result.stderr.strip()))
+        except Exception as exc:
+            failed.append((iss, str(exc)))
+
+    for iss in applied:
+        print(colorize(f"✅ Applied: {iss['fix_cmd']}", GREEN))
+    for iss, err in failed:
+        print(colorize(f"❌ Failed ({iss['title']}): {err}", RED))
+
+    # Re-read config for after score
+    after_cfg = _load_openclaw_cfg()
+    after_score = _compute_score(after_cfg)
+    print()
+    print(f"Before: {before_score}/100 ({_grade(before_score)})")
+    print(colorize(f"After:  {after_score}/100 ({_grade(after_score)})", GREEN if after_score > before_score else YELLOW))
+
+    if manual:
+        print()
+        print(colorize("Items requiring manual fix:", YELLOW))
+        for iss in manual:
+            print(f"  • {iss['title']}: {iss['description']}")
+
+
 def cmd_update_defs(as_json: bool) -> None:
     """Run definitions updater script as a subprocess."""
     update_script = skill_root() / "definitions" / "update.py"
@@ -597,8 +787,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     report_parser = sub.add_parser("report", help="Generate 7-day report")
     report_parser.add_argument("--deliver", action="store_true", help="Format for channel delivery (default for cron)")
-    
+
     sub.add_parser("update-defs", help="Check for definition updates")
+
+    fix_parser = sub.add_parser("fix", help="Show config audit issues and apply safe fixes")
+    fix_parser.add_argument("--dry-run", action="store_true", dest="dry_run", help="Preview fixes without applying")
 
     return parser
 
@@ -633,6 +826,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             cmd_report(conn, args.json, getattr(args, 'deliver', False))
         elif args.command == "update-defs":
             cmd_update_defs(args.json)
+        elif args.command == "fix":
+            cmd_fix(args.json, getattr(args, 'dry_run', False))
         return 0
     except ValueError as exc:
         if args.json:

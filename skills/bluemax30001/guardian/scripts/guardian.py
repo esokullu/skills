@@ -33,6 +33,24 @@ CHANNEL_MULTIPLIERS = {
     "file": 1.0,
 }
 
+TRUST_INTERNAL = 0   # cron, workspace files, system prompts — log only, never block
+TRUST_OWNER = 1      # owner Telegram — flag only, never block
+TRUST_SEMI = 2       # web_fetch, email — block at high threshold score>=70
+TRUST_EXTERNAL = 3   # webhooks, unknown — block at lower threshold score>=50
+
+CHANNEL_TRUST: Dict[str, int] = {
+    "cron": 0, "system": 0, "file": 0, "workspace": 0,
+    "telegram": 1,
+    "email": 2, "unknown": 2,
+    "webhook": 3,
+}
+
+ROLE_TRUST_ADJUST: Dict[str, int] = {
+    "system": -1, "assistant": 0, "user": 0, "tool": 1,
+}
+
+META_WORDS = re.compile(r'(?:detects?|blocks?|example|signature|pattern for)\s', re.IGNORECASE)
+
 
 def _load_json(path: Path) -> Dict[str, Any]:
     """Read and parse JSON object from path."""
@@ -127,12 +145,31 @@ def scan_text(text: str, definitions: Dict[str, List[Dict[str, Any]]], channel: 
                 }
             )
 
+    # Compute effective trust level
+    effective_trust = max(0, min(3, CHANNEL_TRUST.get(channel, 2) + ROLE_TRUST_ADJUST.get(role, 0)))
+    trust_name = ["internal", "owner", "semi_trusted", "external"][effective_trust]
+
+    # Apply context-based score adjustments to each hit
+    for threat in threats:
+        pos = threat["position"]
+        ev_len = len(threat["evidence"])
+        before_ctx = text[max(0, pos - 100):pos]
+        after_ctx = text[pos + ev_len:min(len(text), pos + ev_len + 100)]
+        if "`" in before_ctx and "`" in after_ctx:
+            threat["score"] = max(0, threat["score"] - 20)
+        pre_ctx = text[max(0, pos - 80):pos]
+        if META_WORDS.search(pre_ctx):
+            threat["score"] = max(0, threat["score"] - 15)
+
     if not threats:
         return {
             "score": 0,
             "threats": [],
             "action": "allow",
             "channel": channel,
+            "blocked": False,
+            "trust_level": effective_trust,
+            "trust_name": trust_name,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -151,13 +188,32 @@ def scan_text(text: str, definitions: Dict[str, List[Dict[str, Any]]], channel: 
     else:
         action = "allow"
 
-    return {
+    # Trust-based blocking decision
+    block_reason: Any = None
+    if effective_trust == 0:
+        blocked = False
+        block_reason = "trust_internal_no_block"
+    elif effective_trust == 1:
+        blocked = False
+        block_reason = "trust_owner_flag_only"
+    elif effective_trust == 2:
+        blocked = final_score >= 70
+    else:
+        blocked = final_score >= 50
+
+    result: Dict[str, Any] = {
         "score": final_score,
         "threats": threats,
         "action": action,
         "channel": channel,
+        "blocked": blocked,
+        "trust_level": effective_trust,
+        "trust_name": trust_name,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+    if block_reason is not None:
+        result["block_reason"] = block_reason
+    return result
 
 
 def _iter_jsonl_files(search_roots: Iterable[Path]) -> List[Path]:

@@ -32,6 +32,136 @@ from scripts.egress_scanner import ensure_egress_table
 from scripts.runtime_monitor import ensure_runtime_table
 
 
+_OPENCLAW_CFG_PATH = Path.home() / ".openclaw" / "openclaw.json"
+
+_AUDIT_ISSUES = [
+    {
+        "key": ("gateway", "rateLimit", "enabled"),
+        "severity": "critical",
+        "title": "Rate Limiting",
+        "description": "No rate limit — API vulnerable to DoS",
+        "fix": "openclaw config set gateway.rateLimit.enabled true",
+        "points": 20,
+    },
+    {
+        "key": ("tools", "allowlist"),
+        "severity": "critical",
+        "title": "Tool Execution",
+        "description": "External tool execution unrestricted",
+        "fix": "Set tools.allowlist in openclaw.json",
+        "points": 20,
+    },
+    {
+        "key": ("models", "allowlist"),
+        "severity": "medium",
+        "title": "Model Allowlist",
+        "description": "Any model can be used",
+        "fix": "Set models.allowlist in openclaw.json",
+        "points": 10,
+    },
+    {
+        "key": ("sessions", "timeout"),
+        "severity": "medium",
+        "title": "Session Timeout",
+        "description": "Sessions never expire",
+        "fix": "Set sessions.timeout in openclaw.json",
+        "points": 10,
+    },
+    {
+        "key": ("logging", "audit"),
+        "severity": "medium",
+        "title": "Audit Logging",
+        "description": "No forensic trail",
+        "fix": "Enable logging.audit in openclaw.json",
+        "points": 10,
+    },
+]
+
+
+def _get_nested(d: Dict[str, Any], *keys: str) -> Any:
+    """Traverse nested dict with multiple keys."""
+    for k in keys:
+        if not isinstance(d, dict):
+            return None
+        d = d.get(k)  # type: ignore[assignment]
+    return d
+
+
+def _is_configured(cfg: Dict[str, Any], key_path: tuple) -> bool:
+    """Return True if the config key is set to a truthy / non-empty value."""
+    val = _get_nested(cfg, *key_path)
+    if val is None:
+        return False
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, (list, dict)):
+        return len(val) > 0
+    return bool(val)
+
+
+def build_config_audit_payload() -> Dict[str, Any]:
+    """Read ~/.openclaw/openclaw.json and produce a config audit report."""
+    openclaw_cfg: Dict[str, Any] = {}
+    try:
+        if _OPENCLAW_CFG_PATH.exists():
+            openclaw_cfg = json.loads(_OPENCLAW_CFG_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+
+    # Check Guardian-side config for passing items
+    guardian_active = True  # if the server is running, Guardian is active
+    try:
+        g_cfg = load_guardian_config(config_path=str(DEFAULT_CONFIG_PATH))
+        scan_interval = g_cfg.get("scan_interval_minutes", 2)
+    except Exception:
+        scan_interval = 2
+
+    # Count signatures
+    def_count = 0
+    def_dir = SKILL_ROOT / "definitions"
+    if def_dir.exists():
+        for f in def_dir.glob("*.json"):
+            try:
+                data = json.loads(f.read_text())
+                def_count += len(data.get("signatures", []))
+            except Exception:
+                pass
+
+    passing = []
+    if guardian_active:
+        passing.append("Guardian active")
+    if def_count > 0:
+        passing.append(f"Signatures loaded ({def_count})")
+    if scan_interval:
+        passing.append(f"Scan interval set ({scan_interval}min)")
+
+    issues = []
+    score = 100
+    for issue_def in _AUDIT_ISSUES:
+        if not _is_configured(openclaw_cfg, issue_def["key"]):
+            score -= issue_def["points"]
+            issues.append({
+                "severity": issue_def["severity"],
+                "title": issue_def["title"],
+                "description": issue_def["description"],
+                "fix": issue_def["fix"],
+                "points": issue_def["points"],
+            })
+
+    if score >= 90:
+        grade = "A"
+    elif score >= 75:
+        grade = "B"
+    elif score >= 60:
+        grade = "C"
+    elif score >= 45:
+        grade = "D"
+    else:
+        grade = "F"
+
+    return {"score": score, "grade": grade, "issues": issues, "passing": passing}
+
+
 def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
     row = conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
@@ -218,6 +348,39 @@ def _save_guardian_config(cfg: Dict[str, Any], path: Path | None = None) -> None
     target.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
 
 
+_RATING_CTA = "\n\n⭐ Guardian just blocked a threat! Rate us → https://clawhub.ai/bluemax30001/guardian (one-time ask)"
+
+
+def _ensure_guardian_state(conn: sqlite3.Connection) -> None:
+    """Create guardian_state singleton table and add first_notification_sent column safely."""
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS guardian_state (
+            id INTEGER PRIMARY KEY DEFAULT 1,
+            first_notification_sent INTEGER DEFAULT 0
+        )
+        """
+    )
+    conn.execute("INSERT OR IGNORE INTO guardian_state (id, first_notification_sent) VALUES (1, 0)")
+    # Safe ALTER TABLE: add column if it doesn't exist
+    cols = [row[1] for row in conn.execute("PRAGMA table_info(guardian_state)").fetchall()]
+    if "first_notification_sent" not in cols:
+        conn.execute("ALTER TABLE guardian_state ADD COLUMN first_notification_sent INTEGER DEFAULT 0")
+    conn.commit()
+
+
+def _get_first_notification_sent(conn: sqlite3.Connection) -> bool:
+    _ensure_guardian_state(conn)
+    row = conn.execute("SELECT first_notification_sent FROM guardian_state WHERE id=1").fetchone()
+    return bool(row and row[0])
+
+
+def _set_first_notification_sent(conn: sqlite3.Connection) -> None:
+    _ensure_guardian_state(conn)
+    conn.execute("UPDATE guardian_state SET first_notification_sent=1 WHERE id=1")
+    conn.commit()
+
+
 def _notify_primary_channel(scanner: GuardianScanner, result: Dict[str, Any], channel: str, approval_token: str | None = None) -> None:
     """Optional local notifier for blocked content.
 
@@ -238,12 +401,27 @@ def _notify_primary_channel(scanner: GuardianScanner, result: Dict[str, Any], ch
             return
         top = result.get("top_threat") or {}
         raw_evidence = str(top.get("evidence") or "").strip()
+        summary = result.get("summary")
+
+        # BL-047C: append one-time rating CTA on first notification
+        db = scanner._scanner.db
+        is_first = False
+        if db:
+            try:
+                is_first = not _get_first_notification_sent(db.conn)
+            except Exception:
+                pass
+        if is_first and summary is not None:
+            summary = str(summary) + _RATING_CTA
+        elif is_first and summary is None:
+            summary = _RATING_CTA.strip()
+
         payload = {
             "event": "guardian_blocked",
             "severity": top.get("severity"),
             "sig_id": top.get("id"),
             "channel": channel,
-            "summary": result.get("summary"),
+            "summary": summary,
             "threat_count": len(result.get("threats") or []),
             "evidence": raw_evidence[:300] if raw_evidence else "",
             "approval_token": approval_token,
@@ -253,6 +431,11 @@ def _notify_primary_channel(scanner: GuardianScanner, result: Dict[str, Any], ch
         if not cmd_parts:
             return
         subprocess.run(cmd_parts + [json.dumps(payload)], check=False, timeout=5)
+        if is_first and db:
+            try:
+                _set_first_notification_sent(db.conn)
+            except Exception:
+                pass
     except Exception:
         # Notifications are best-effort only
         pass
@@ -864,6 +1047,10 @@ class GuardianHTTPHandler(BaseHTTPRequestHandler):
             limit = int((qs.get("limit", ["50"]) or ["50"])[0])
             overrides = db.get_approved_overrides(limit=limit)
             self._json_response(HTTPStatus.OK, {"overrides": overrides, "count": len(overrides)})
+            return
+
+        if parsed.path == "/config-audit":
+            self._json_response(HTTPStatus.OK, build_config_audit_payload())
             return
 
         self._json_response(HTTPStatus.NOT_FOUND, {"error": "Not found"})

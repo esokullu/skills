@@ -107,5 +107,21 @@ python3 skills/guardian/scripts/check_updates.py --skip {latest}
         'changelog_url': 'https://clawhub.ai/skills/guardian'
     }, indent=2))
 
+def run_local_audit() -> None:
+    """Run the local security audit pipeline alongside update check."""
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "local_audit",
+            Path(__file__).parent / "local_audit.py",
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        module.main()
+    except Exception as e:
+        print(f"Warning: local audit failed: {e}", file=sys.stderr)
+
+
 if __name__ == '__main__':
     main()
+    run_local_audit()
