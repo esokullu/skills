@@ -3,9 +3,15 @@
   "slug": "evc-team-relay",
   "displayName": "EVC Team Relay",
   "latest": {
-    "version": "1.1.1",
-    "publishedAt": 1772106204175,
-    "commit": "https://github.com/openclaw/skills/commit/dd5e65ac1602d11135f4721d520b31a155f78c96"
+    "version": "1.1.2",
+    "publishedAt": 1772368011158,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.1.1",
+      "publishedAt": 1772106204175,
+      "commit": "https://github.com/openclaw/skills/commit/dd5e65ac1602d11135f4721d520b31a155f78c96"
+    }
+  ]
 }
