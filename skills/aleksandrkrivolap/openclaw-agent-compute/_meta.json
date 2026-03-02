@@ -1,0 +1,11 @@
+{
+  "owner": "aleksandrkrivolap",
+  "slug": "openclaw-agent-compute",
+  "displayName": "OpenClaw Agent Compute",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1772079427142,
+    "commit": null
+  },
+  "history": []
+}
