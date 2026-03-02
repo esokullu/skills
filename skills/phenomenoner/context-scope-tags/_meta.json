@@ -3,11 +3,16 @@
   "slug": "context-scope-tags",
   "displayName": "Context Scope Tags",
   "latest": {
-    "version": "0.1.1",
-    "publishedAt": 1771448013993,
-    "commit": "https://github.com/openclaw/skills/commit/1a65cd89489805d613178a0282afc2aad013526a"
+    "version": "0.2.0",
+    "publishedAt": 1772363132658,
+    "commit": null
   },
   "history": [
+    {
+      "version": "0.1.1",
+      "publishedAt": 1771448013993,
+      "commit": "https://github.com/openclaw/skills/commit/1a65cd89489805d613178a0282afc2aad013526a"
+    },
     {
       "version": "0.1.0",
       "publishedAt": 1770790766206,
