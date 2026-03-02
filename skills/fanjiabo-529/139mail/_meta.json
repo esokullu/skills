@@ -3,9 +3,15 @@
   "slug": "139mail",
   "displayName": "139mail",
   "latest": {
-    "version": "1.0.1",
-    "publishedAt": 1772189070831,
-    "commit": "https://github.com/openclaw/skills/commit/d52aec5d9915dd693aa15e9ac68ae4ccb9d757bb"
+    "version": "1.0.2",
+    "publishedAt": 1772449667037,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1772189070831,
+      "commit": "https://github.com/openclaw/skills/commit/d52aec5d9915dd693aa15e9ac68ae4ccb9d757bb"
+    }
+  ]
 }

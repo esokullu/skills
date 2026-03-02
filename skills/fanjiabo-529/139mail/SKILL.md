@@ -25,8 +25,7 @@ pip install imapclient
 
 ## SSL/TLS 安全说明
 
-由于139邮箱服务器使用的是TLS协议，本技能使用兼容模式连接。
-
+由于139邮箱服务器使用的是较旧版本的TLS协议（TLS 1.0/1.1），本技能使用兼容模式连接。
 **安全建议**：
 - 兼容模式会降低SSL安全性，建议仅在受信任的网络环境中使用
 
@@ -34,21 +33,65 @@ pip install imapclient
 
 当用户首次请求操作139邮箱时：
 
-1. **询问用户是否已开启IMAP服务**
-   - 告知用户需要前往 https://mail.10086.cn/ 开启IMAP服务
-   - 获取授权码（代替密码使用）
+### 第1步：环境检查（推荐）
 
-2. **收集配置信息**
-   - 139邮箱账号（如：136xxxxxxxxx@139.com）
-   - 授权码（不是登录密码！）
+运行环境检查脚本，确保所有依赖就绪：
 
-3. **保存配置**
-   - 调用 `scripts/config_manager.py save` 保存配置
-   - 配置保存在 `config/139mail.conf`（JSON格式）
+```bash
+python scripts/check_env.py
+```
 
-4. **测试连接**
-   - 验证账号和授权码是否正确
-   - 成功后开始执行用户请求的操作
+此脚本会检查：
+- Python版本 >= 3.8
+- OpenSSL版本 >= 1.1.1
+- imapclient模块已安装
+- SSL兼容性设置
+- 配置文件是否存在
+
+### 第2步：安装依赖
+
+```bash
+pip install imapclient
+```
+
+### 第3步：开启IMAP服务并获取授权码
+
+1. 前往 https://mail.10086.cn/ 登录邮箱
+2. 进入 **设置 → 账户 → IMAP/POP3服务**
+3. 开启 **IMAP/SMTP服务**
+4. 获取**授权码**（16位字符串，不是登录密码！）
+
+⚠️ **重要**：授权码只显示一次，请务必保存！
+
+### 第4步：保存配置
+
+```bash
+python scripts/config_manager.py save --username 136xxxxxxxxx@139.com --password 你的授权码
+```
+
+### 第5步：测试连接
+
+```bash
+python scripts/check_mail.py --limit 5
+```
+
+如果显示邮件列表，说明配置成功！
+
+### 快速开始（一步完成）
+
+```bash
+# 1. 安装依赖
+pip install imapclient
+
+# 2. 运行环境检查
+python scripts/check_env.py
+
+# 3. 配置账号（替换为你的账号和授权码）
+python scripts/config_manager.py save --username 136xxxxxxxxx@139.com --password xxxxxxxxxxxxxxxx
+
+# 4. 查看邮件
+python scripts/check_mail.py --unread
+```
 
 ## 配置管理
 
@@ -71,6 +114,27 @@ pip install imapclient
   "smtp_server": "smtp.139.com",
   "smtp_port": 465
 }
+```
+
+## 项目结构
+
+```
+skills/139mail/
+├── SKILL.md                    # 本文件 - 使用文档
+├── config/                     # 配置目录
+│   └── 139mail.conf           # 账号配置文件（自动创建）
+├── references/                 # 参考资料
+│   ├── credentials.md         # 服务器配置信息
+│   └── imap_guide.md          # IMAP操作指南
+└── scripts/                    # 核心脚本
+    ├── check_env.py           # ⭐ 环境检查脚本（新手先用）
+    ├── config_manager.py      # 配置管理
+    ├── check_mail.py          # 查看邮件
+    ├── view_mail.py           # 查看邮件详情
+    ├── send_mail.py           # 发送邮件
+    ├── search_mail.py         # 搜索邮件
+    ├── manage_mail.py         # 邮件管理（标记/删除）
+    └── move_mail.py           # 邮件分拣
 ```
 
 ## 核心功能
@@ -156,15 +220,72 @@ python scripts/move_mail.py --list-folders
 python scripts/move_mail.py --move <邮件ID> --to <目标文件夹>
 ```
 
-## 错误处理
+## 错误处理与故障排除
 
-**授权码失效时**：
-- 提示用户重新获取授权码
-- 更新配置文件
-- 重新尝试操作
+### 常见错误及解决方案
 
-**SSL连接失败**：
-如果遇到SSL握手错误，可能是网络问题或139邮箱服务器暂时不可用。请检查网络连接后重试。
+#### 1. SSL握手失败
+**错误信息**：
+```
+[SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] sslv3 alert handshake failure
+```
+
+**原因**：
+- 139邮箱使用较旧的TLS 1.0/1.1协议
+- Python 3.10+ 默认OpenSSL安全级别过高
+
+**解决方案**：
+本技能已自动配置兼容性设置，无需手动修改。如仍失败：
+```bash
+# 检查Python版本
+python --version  # 需要 >= 3.8
+
+# 检查OpenSSL版本
+python -c "import ssl; print(ssl.OPENSSL_VERSION)"  # 需要 >= 1.1.1
+```
+
+#### 2. 登录失败
+**错误信息**：
+```
+imapclient.exceptions.LoginError
+```
+
+**检查清单**：
+- [ ] 账号格式正确：`136xxxxxxxxx@139.com`（不是纯手机号）
+- [ ] 使用的是**授权码**，不是登录密码
+- [ ] 已在网页版开启 IMAP 服务
+- [ ] 授权码未过期（如过期需重新获取）
+
+#### 3. 找不到模块
+**错误信息**：
+```
+ModuleNotFoundError: No module named 'imapclient'
+```
+
+**解决**：
+```bash
+pip install imapclient
+```
+
+#### 4. 中文显示乱码
+**现象**：邮件主题/发件人显示为乱码
+
+**原因**：Windows终端编码问题
+
+**解决**：
+- 使用 VS Code 终端（推荐）
+- 或设置 Windows 使用 UTF-8：
+  ```cmd
+  chcp 65001
+  ```
+
+### 调试模式
+
+如需详细调试信息，可在运行脚本前设置环境变量：
+```bash
+set PYTHONHTTPSVERIFY=0
+python scripts/check_mail.py --limit 5
+```
 
 ## 首次使用提示模板
 

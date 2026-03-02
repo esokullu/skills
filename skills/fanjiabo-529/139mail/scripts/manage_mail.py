@@ -1,127 +1,172 @@
 #!/usr/bin/env python3
-"""管理139邮箱邮件"""
-from imapclient import IMAPClient
+# -*- coding: utf-8 -*-
+"""
+邮件管理：标记已读/未读、删除、恢复等
+"""
+import imapclient
+import ssl
+import argparse
 import sys
 import os
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config_manager import load_config
 
-def get_config():
-    config = load_config()
-    if not config:
-        print("❌ 未配置")
-        sys.exit(1)
-    return config
-
 def connect_server(config):
-    from ssl_helper import create_ssl_context
-    ssl_context = create_ssl_context()
-    server = IMAPClient(config['imap_server'], ssl=True, ssl_context=ssl_context)
+    """连接服务器"""
+    ssl_context = ssl._create_unverified_context()
+    ssl_context.set_ciphers('DEFAULT@SECLEVEL=1')
+    
+    server = imapclient.IMAPClient(
+        config['imap_server'], 
+        port=config['imap_port'], 
+        ssl=True,
+        ssl_context=ssl_context
+    )
     server.login(config['username'], config['password'])
     return server
 
-def get_trash_folder(server):
-    for name in ['已删除', 'Trash', 'Deleted']:
-        try:
-            server.select_folder(name)
-            return name
-        except:
-            continue
-    return None
-
-def list_mails(server, folder='INBOX', limit=10):
+def list_messages(server, folder='INBOX', limit=20):
+    """列出邮件"""
     server.select_folder(folder)
     messages = server.search(['ALL'])
+    
     if not messages:
-        print("📭 没有邮件")
+        print(f"文件夹 '{folder}' 中没有邮件")
         return
-    recent = list(messages)[-limit:]
-    display = "收件箱" if folder == 'INBOX' else folder
-    print(f"📧 [{display}] 最近{len(recent)}封\n")
-    print("-" * 60)
-    for msg_id in reversed(recent):
-        msg_data = server.fetch([msg_id], ['ENVELOPE', 'FLAGS'])
-        envelope = msg_data[msg_id][b'ENVELOPE']
-        subject = envelope.subject
-        if isinstance(subject, bytes):
-            try: subject = subject.decode('utf-8')
-            except: subject = subject.decode('gbk', errors='ignore')
-        elif subject is None: subject = "(无主题)"
-        sender = envelope.from_[0] if envelope.from_ else None
-        sender_str = f"{sender.mailbox.decode()}@{sender.host.decode()}" if sender else "Unknown"
-        is_unread = b'\\Seen' not in msg_data[msg_id][b'FLAGS']
-        print(f"\n{'📬' if is_unread else '📧'} ID: {msg_id} | {sender_str} | {subject}")
-    print("\n" + "-" * 60)
+    
+    messages = messages[-limit:]
+    
+    from email.header import decode_header
+    import email
+    
+    print(f"\n文件夹: {folder} (显示最新 {len(messages)} 封)")
+    print("="*60)
+    
+    for msg_id in reversed(messages):
+        fetch_data = server.fetch([msg_id], ['BODY.PEEK[HEADER]'])
+        raw_header = fetch_data[msg_id][b'BODY[HEADER]']
+        msg = email.message_from_bytes(raw_header)
+        
+        # 解码
+        def decode_str(s):
+            if not s:
+                return ""
+            decoded_parts = decode_header(s)
+            result = ""
+            for part, charset in decoded_parts:
+                if isinstance(part, bytes):
+                    try:
+                        result += part.decode(charset or 'utf-8', errors='ignore')
+                    except:
+                        result += part.decode('utf-8', errors='ignore')
+                else:
+                    result += part
+            return result
+        
+        subject = decode_str(msg.get('Subject', '无主题'))
+        sender = decode_str(msg.get('From', '未知'))
+        
+        flags = server.fetch([msg_id], ['FLAGS'])
+        is_unread = b'\\Seen' not in flags[msg_id][b'FLAGS']
+        status = "📧" if is_unread else "✓"
+        
+        # 截断显示
+        subject = (subject[:40] + '...') if len(subject) > 40 else subject
+        sender = (sender[:30] + '...') if len(sender) > 30 else sender
+        
+        print(f"{status} ID:{msg_id:4d} | {sender:33s} | {subject}")
 
-def delete_to_trash(server, msg_id):
-    server.select_folder('INBOX')
-    trash = get_trash_folder(server)
-    if trash:
-        server.copy([msg_id], trash)
-    server.delete_messages([msg_id])
-    server.expunge()
-    print(f"✅ 邮件 {msg_id} 已删除（{'已移动到['+trash+']' if trash else '直接删除'}）")
-
-def restore_mail(server, msg_id):
-    trash = get_trash_folder(server)
-    if not trash:
-        print("❌ 找不到已删除文件夹")
-        return
-    server.select_folder(trash)
-    server.copy([msg_id], 'INBOX')
-    server.delete_messages([msg_id])
-    server.expunge()
-    print(f"✅ 邮件 {msg_id} 已从 [{trash}] 恢复到 [收件箱]")
-
-def permanent_delete(server, msg_id, folder='INBOX'):
-    server.select_folder(folder)
-    server.delete_messages([msg_id])
-    server.expunge()
-    print(f"🗑️ 邮件 {msg_id} 已彻底删除")
-
-def mark_read(server, msg_id):
-    server.select_folder('INBOX')
-    server.add_flags([msg_id], [b'\\Seen'])
-    print(f"✅ 邮件 {msg_id} 已标记已读")
-
-def mark_unread(server, msg_id):
-    server.select_folder('INBOX')
-    server.remove_flags([msg_id], [b'\\Seen'])
-    print(f"✅ 邮件 {msg_id} 已标记未读")
-
-if __name__ == '__main__':
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--list', '-l', action='store_true', help='列出邮件')
-    parser.add_argument('--list-trash', '-lt', action='store_true', help='列出已删除')
-    parser.add_argument('--delete', '-d', type=int, help='删除到已删除文件夹')
-    parser.add_argument('--restore', '-r', type=int, help='恢复邮件')
-    parser.add_argument('--permanent-delete', '-pd', type=int, help='彻底删除')
-    parser.add_argument('--mark-read', type=int, help='标记已读')
-    parser.add_argument('--mark-unread', type=int, help='标记未读')
-    parser.add_argument('--limit', type=int, default=10)
+def main():
+    parser = argparse.ArgumentParser(description='邮件管理')
+    parser.add_argument('--list', action='store_true', help='列出收件箱邮件')
+    parser.add_argument('--list-trash', action='store_true', help='列出已删除邮件')
+    parser.add_argument('--mark-read', type=int, help='标记指定ID为已读')
+    parser.add_argument('--mark-unread', type=int, help='标记指定ID为未读')
+    parser.add_argument('--delete', type=int, help='删除指定ID邮件（移到已删除）')
+    parser.add_argument('--restore', type=int, help='从已删除恢复指定ID邮件')
+    parser.add_argument('--permanent-delete', type=int, help='永久删除指定ID邮件')
+    parser.add_argument('--limit', type=int, default=20, help='显示数量限制')
+    
     args = parser.parse_args()
     
-    config = get_config()
-    server = connect_server(config)
+    config = load_config()
+    if not config:
+        print("错误：未配置139邮箱账号")
+        return 1
     
-    if args.list:
-        list_mails(server, 'INBOX', args.limit)
-    elif args.list_trash:
-        trash = get_trash_folder(server)
-        if trash: list_mails(server, trash, args.limit)
-        else: print("❌ 找不到已删除文件夹")
-    elif args.delete:
-        delete_to_trash(server, args.delete)
-    elif args.restore:
-        restore_mail(server, args.restore)
-    elif args.permanent_delete:
-        permanent_delete(server, args.permanent_delete)
-    elif args.mark_read:
-        mark_read(server, args.mark_read)
-    elif args.mark_unread:
-        mark_unread(server, args.mark_unread)
-    else:
-        parser.print_help()
-    
-    server.logout()
+    try:
+        with connect_server(config) as server:
+            if args.list:
+                list_messages(server, 'INBOX', args.limit)
+            
+            elif args.list_trash:
+                # 139邮箱的已删除文件夹可能是 'Deleted Messages' 或 'Trash'
+                try:
+                    list_messages(server, 'Deleted Messages', args.limit)
+                except:
+                    try:
+                        list_messages(server, 'Trash', args.limit)
+                    except:
+                        print("无法访问已删除文件夹")
+            
+            elif args.mark_read:
+                server.select_folder('INBOX')
+                server.add_flags([args.mark_read], ['\\Seen'])
+                print(f"✓ 邮件 {args.mark_read} 已标记为已读")
+            
+            elif args.mark_unread:
+                server.select_folder('INBOX')
+                server.remove_flags([args.mark_unread], ['\\Seen'])
+                print(f"✓ 邮件 {args.mark_unread} 已标记为未读")
+            
+            elif args.delete:
+                server.select_folder('INBOX')
+                # 复制到已删除文件夹，然后从收件箱删除
+                try:
+                    server.copy([args.delete], 'Deleted Messages')
+                except:
+                    try:
+                        server.copy([args.delete], 'Trash')
+                    except:
+                        pass
+                server.delete_messages([args.delete])
+                server.expunge()
+                print(f"✓ 邮件 {args.delete} 已删除")
+            
+            elif args.restore:
+                # 从已删除恢复到收件箱
+                try:
+                    server.select_folder('Deleted Messages')
+                except:
+                    server.select_folder('Trash')
+                server.copy([args.restore], 'INBOX')
+                server.delete_messages([args.restore])
+                server.expunge()
+                print(f"✓ 邮件 {args.restore} 已恢复到收件箱")
+            
+            elif args.permanent_delete:
+                # 在当前选中的文件夹中永久删除
+                server.delete_messages([args.permanent_delete])
+                server.expunge()
+                print(f"✓ 邮件 {args.permanent_delete} 已永久删除")
+            
+            else:
+                parser.print_help()
+        
+        return 0
+        
+    except imapclient.exceptions.LoginError as e:
+        print(f"登录失败: {e}")
+        print("请检查账号和授权码是否正确")
+        return 1
+    except ssl.SSLError as e:
+        print(f"SSL连接错误: {e}")
+        print("请运行: python scripts/check_env.py 检查环境")
+        return 1
+    except Exception as e:
+        print(f"错误: {e}")
+        return 1
+
+if __name__ == '__main__':
+    exit(main())
