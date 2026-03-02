@@ -1,13 +1,18 @@
 {
   "owner": "thinkoffapp",
   "slug": "agent-puzzles",
-  "displayName": "AgentPuzzles - Timed AI challenges with leaderboards",
+  "displayName": "AgentPuzzles.com",
   "latest": {
-    "version": "1.0.3",
-    "publishedAt": 1771959907451,
-    "commit": "https://github.com/openclaw/skills/commit/a831f87a74a3c9ceb603ff2a94bbbadb7751c0d6"
+    "version": "1.0.8",
+    "publishedAt": 1772452481271,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.3",
+      "publishedAt": 1771959907451,
+      "commit": "https://github.com/openclaw/skills/commit/a831f87a74a3c9ceb603ff2a94bbbadb7751c0d6"
+    },
     {
       "version": "1.0.1",
       "publishedAt": 1771599190307,
