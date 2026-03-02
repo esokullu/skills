@@ -1,6 +1,6 @@
 # Reference Implementation
 
-These files are the actual Clawdbot source code for the Pipedream integration. They are included for reference when:
+These files are the actual OpenClaw source code for the Pipedream integration. They are included for reference when:
 
 - Debugging issues with the integration
 - Building custom integrations
@@ -90,8 +90,8 @@ Tokens expire after 1 hour. The refresh script:
 
 If you need to modify this integration:
 
-1. The actual source is in `~/clawdbot/src/` and `~/clawdbot/ui/src/`
+1. The actual source is in `~/openclaw/src/` and `~/openclaw/ui/src/`
 2. After changes, run `npm run build` and `npm run ui:build`
-3. Restart gateway: `clawdbot gateway restart`
+3. Restart gateway: `openclaw gateway restart`
 
 These reference files are snapshots and won't affect the running system.

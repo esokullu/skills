@@ -31,10 +31,7 @@ export function initialPipedreamState(): PipedreamState {
 
 type SetState = (fn: (prev: PipedreamState) => PipedreamState) => void;
 
-async function getPipedreamAccessToken(
-  clientId: string,
-  clientSecret: string
-): Promise<string> {
+async function getPipedreamAccessToken(clientId: string, clientSecret: string): Promise<string> {
   const response = await fetch("https://api.pipedream.com/v1/oauth/token", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -60,7 +57,7 @@ async function getPipedreamAccessToken(
 
 export async function loadPipedreamState(
   client: GatewayBrowserClient,
-  setState: SetState
+  setState: SetState,
 ): Promise<void> {
   setState((prev) => ({ ...prev, loading: true, error: null }));
 
@@ -98,7 +95,7 @@ export async function loadPipedreamState(
       credentials: result.credentials
         ? {
             clientId: result.credentials.clientId,
-            clientSecret: "", // Not returned for security
+            clientSecret: result.credentials.hasSecret ? "••••••••" : "", // Placeholder dots if secret is saved
             projectId: result.credentials.projectId,
             environment: result.credentials.environment as "development" | "production",
           }
@@ -119,7 +116,7 @@ export async function loadPipedreamState(
 export async function savePipedreamCredentials(
   client: GatewayBrowserClient,
   state: PipedreamState,
-  setState: SetState
+  setState: SetState,
 ): Promise<void> {
   const { credentials, externalUserId } = state;
 
@@ -145,7 +142,7 @@ export async function savePipedreamCredentials(
         projectId: credentials.projectId,
         environment: credentials.environment,
         externalUserId,
-      }
+      },
     );
 
     if (!result.success) {
@@ -182,10 +179,10 @@ export async function connectPipedreamApp(
   client: GatewayBrowserClient,
   appSlug: string,
   _state: PipedreamState,
-  setState: SetState
+  setState: SetState,
 ): Promise<void> {
   console.log("[Pipedream] connectPipedreamApp called for:", appSlug);
-  
+
   setState((prev) => ({ ...prev, connectingApp: appSlug, error: null, success: null }));
 
   try {
@@ -225,7 +222,7 @@ export async function connectPipedreamApp(
         "x-pd-external-user-id": credentials.externalUserId,
         "x-pd-app-slug": mcpAppSlug,
         "Content-Type": "application/json",
-        "Accept": "application/json, text/event-stream",
+        Accept: "application/json, text/event-stream",
       },
       body: JSON.stringify({
         jsonrpc: "2.0",
@@ -263,20 +260,20 @@ export async function connectPipedreamApp(
       error?: { message?: string };
       result?: { tools?: unknown[] };
     };
-    
+
     console.log("[Pipedream] MCP response:", JSON.stringify(jsonRpcResponse, null, 2));
-    
+
     // Check for errors
     if (jsonRpcResponse.error) {
       throw new Error(jsonRpcResponse.error.message || JSON.stringify(jsonRpcResponse.error));
     }
 
     const toolCount = jsonRpcResponse.result?.tools?.length || 0;
-    
+
     // If no tools, OAuth wasn't completed - open the connect popup
     if (toolCount === 0) {
       console.log("[Pipedream] No tools available, opening OAuth flow");
-      
+
       // Get the connect URL from Pipedream's Connect API
       const connectResult = await client.request<{
         success: boolean;
@@ -299,7 +296,7 @@ export async function connectPipedreamApp(
       const popup = window.open(
         connectResult.connectUrl,
         "pipedream_oauth",
-        "width=600,height=700,scrollbars=yes,resizable=yes"
+        "width=600,height=700,scrollbars=yes,resizable=yes",
       );
 
       if (!popup) {
@@ -317,18 +314,19 @@ export async function connectPipedreamApp(
         success: `Authorizing ${appSlugToName(appSlug)}... Complete the OAuth flow in the popup window, then click Connect again to finish setup.`,
         connectingApp: null,
       }));
-      
+
       return;
     }
 
     // Save to mcporter config via gateway RPC (backend reads stored credentials)
-    const saveResult = await client.request<{ success: boolean; serverName?: string; error?: string }>(
-      "pipedream.connectApp",
-      {
-        appSlug,
-        accessToken,
-      }
-    );
+    const saveResult = await client.request<{
+      success: boolean;
+      serverName?: string;
+      error?: string;
+    }>("pipedream.connectApp", {
+      appSlug,
+      accessToken,
+    });
 
     if (!saveResult.success) {
       throw new Error(saveResult.error || "Failed to save config");
@@ -367,10 +365,10 @@ export async function disconnectPipedreamApp(
   client: GatewayBrowserClient,
   appSlug: string,
   state: PipedreamState,
-  setState: SetState
+  setState: SetState,
 ): Promise<void> {
   const app = state.connectedApps.find((a) => a.slug === appSlug);
-  const serverName = (app as PipedreamApp & { serverName?: string })?.serverName;
+  const serverName = (app)?.serverName;
 
   if (!serverName) {
     setState((prev) => ({
@@ -407,7 +405,7 @@ export async function testPipedreamApp(
   client: GatewayBrowserClient,
   appSlug: string,
   _state: PipedreamState,
-  setState: SetState
+  setState: SetState,
 ): Promise<void> {
   setState((prev) => ({ ...prev, testingApp: appSlug, error: null, success: null }));
 
@@ -440,7 +438,7 @@ export async function testPipedreamApp(
         "x-pd-external-user-id": credentials.externalUserId,
         "x-pd-app-slug": appSlug.replace(/-/g, "_"),
         "Content-Type": "application/json",
-        "Accept": "application/json, text/event-stream",
+        Accept: "application/json, text/event-stream",
       },
       body: JSON.stringify({
         jsonrpc: "2.0",
@@ -486,9 +484,7 @@ export async function testPipedreamApp(
     setState((prev) => ({
       ...prev,
       testingApp: null,
-      connectedApps: prev.connectedApps.map((a) =>
-        a.slug === appSlug ? { ...a, toolCount } : a
-      ),
+      connectedApps: prev.connectedApps.map((a) => (a.slug === appSlug ? { ...a, toolCount } : a)),
       success: `${appSlugToName(appSlug)} is working! ${toolCount} tools available.`,
     }));
 
@@ -509,10 +505,10 @@ export async function refreshPipedreamAppToken(
   client: GatewayBrowserClient,
   appSlug: string,
   state: PipedreamState,
-  setState: SetState
+  setState: SetState,
 ): Promise<void> {
   const app = state.connectedApps.find((a) => a.slug === appSlug);
-  const serverName = (app as PipedreamApp & { serverName?: string })?.serverName;
+  const serverName = (app)?.serverName;
 
   setState((prev) => ({ ...prev, refreshingApp: appSlug, error: null, success: null }));
 
@@ -529,7 +525,10 @@ export async function refreshPipedreamAppToken(
     }
 
     if (serverName) {
-      await client.request("pipedream.refreshToken", { serverName, accessToken: tokenResult.accessToken });
+      await client.request("pipedream.refreshToken", {
+        serverName,
+        accessToken: tokenResult.accessToken,
+      });
     }
 
     setState((prev) => ({
@@ -631,17 +630,58 @@ export function setManualSlug(slug: string, setState: SetState): void {
 export async function connectManualSlug(
   client: GatewayBrowserClient,
   state: PipedreamState,
-  setState: SetState
+  setState: SetState,
 ): Promise<void> {
   const slug = state.manualSlug.trim().toLowerCase();
-  if (!slug) return;
+  if (!slug) {return;}
 
   // Use existing connectPipedreamApp with the manual slug
   await connectPipedreamApp(client, slug, state, setState);
-  
+
   // Clear the manual slug input on success
   setState((prev) => ({
     ...prev,
     manualSlug: "",
   }));
+}
+
+
+// Load per-agent Pipedream summaries for the global tab
+export async function loadPipedreamAgentSummaries(
+  client: GatewayBrowserClient,
+  setState: SetState,
+): Promise<void> {
+  try {
+    // Get agent list
+    const agentsResult = await client.request<{
+      agents?: Array<{ id: string }>;
+    }>("agents.list", {});
+    const agents = agentsResult?.agents ?? [];
+    if (agents.length === 0) {return;}
+
+    // Fetch per-agent status in parallel
+    const summaries = await Promise.all(
+      agents.map(async (agent) => {
+        try {
+          const status = await client.request<{
+            configured: boolean;
+            externalUserId: string;
+            connectedApps: string[];
+          }>("pipedream.agent.status", { agentId: agent.id });
+          return {
+            agentId: agent.id,
+            configured: status.configured,
+            externalUserId: status.externalUserId || agent.id,
+            appCount: status.connectedApps?.length ?? 0,
+          };
+        } catch {
+          return { agentId: agent.id, configured: false, externalUserId: agent.id, appCount: 0 };
+        }
+      }),
+    );
+
+    setState((prev) => ({ ...prev, agentSummaries: summaries }));
+  } catch {
+    // Non-fatal — just don't show agent summaries
+  }
 }

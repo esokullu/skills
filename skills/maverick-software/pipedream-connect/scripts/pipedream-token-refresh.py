@@ -6,15 +6,20 @@ Refreshes OAuth access tokens for all Pipedream MCP servers in mcporter.json.
 Tokens expire after 1 hour, so this should run at least every 50 minutes.
 
 Setup:
-  1. Copy to ~/clawd/scripts/pipedream-token-refresh.py
-  2. Add cron job: */45 * * * * python3 ~/clawd/scripts/pipedream-token-refresh.py
+  1. Copy to ~/openclaw/scripts/pipedream-token-refresh.py
+  2. Add cron job: */45 * * * * python3 ~/openclaw/scripts/pipedream-token-refresh.py
 
 Usage:
   python3 pipedream-token-refresh.py [--config PATH] [--quiet]
 
 Options:
-  --config PATH   Path to mcporter.json (default: ~/clawd/config/mcporter.json)
-  --quiet         Only output errors
+  --config PATH      Path to mcporter.json (default: ~/.openclaw/workspace/config/mcporter.json)
+  --quiet            Only output errors
+
+Credential Sources (in priority order):
+  1. OpenClaw vault  — ~/.openclaw/secrets.json  (keys: PIPEDREAM_CLIENT_ID, PIPEDREAM_CLIENT_SECRET)
+  2. Legacy file     — ~/.openclaw/workspace/config/pipedream-credentials.json  (pre-v1.3 fallback)
+  3. Legacy mcporter — PIPEDREAM_CLIENT_ID / PIPEDREAM_CLIENT_SECRET in mcporter.json env (pre-v1.2 fallback)
 """
 
 import json
@@ -25,12 +30,15 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
-# Default paths
-DEFAULT_CONFIG = Path.home() / "clawd" / "config" / "mcporter.json"
-CREDENTIALS_FILE = Path.home() / "clawd" / "config" / "pipedream-credentials.json"
-LOG_FILE = Path.home() / "clawd" / "logs" / "pipedream-token-refresh.log"
+# ── Paths ─────────────────────────────────────────────────────────────────────
 
-# Parse arguments
+DEFAULT_CONFIG    = Path.home() / ".openclaw" / "workspace" / "config" / "mcporter.json"
+CREDENTIALS_FILE  = Path.home() / ".openclaw" / "workspace" / "config" / "pipedream-credentials.json"
+VAULT_FILE        = Path.home() / ".openclaw" / "secrets.json"
+LOG_FILE          = Path.home() / ".openclaw" / "logs" / "pipedream-token-refresh.log"
+
+# ── Argument parsing ──────────────────────────────────────────────────────────
+
 quiet = "--quiet" in sys.argv or "-q" in sys.argv
 config_path = DEFAULT_CONFIG
 
@@ -39,26 +47,26 @@ for i, arg in enumerate(sys.argv[1:], 1):
         config_path = Path(sys.argv[i + 1])
 
 
+# ── Logging ───────────────────────────────────────────────────────────────────
+
 def log(message: str, is_error: bool = False):
-    """Log a message with timestamp."""
     if quiet and not is_error:
         return
-    
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().isoformat()
-    log_entry = f"[{timestamp}] {message}\n"
-    
+    entry = f"[{timestamp}] {message}\n"
     try:
         with open(LOG_FILE, "a") as f:
-            f.write(log_entry)
-    except:
-        pass  # Don't fail if we can't write to log
-    
+            f.write(entry)
+    except Exception:
+        pass
     if is_error:
-        print(log_entry.strip(), file=sys.stderr)
+        print(entry.strip(), file=sys.stderr)
     else:
-        print(log_entry.strip())
+        print(entry.strip())
 
+
+# ── Token request ─────────────────────────────────────────────────────────────
 
 def get_new_token(client_id: str, client_secret: str) -> dict:
     """Request a new access token from Pipedream."""
@@ -66,13 +74,9 @@ def get_new_token(client_id: str, client_secret: str) -> dict:
     data = json.dumps({
         "grant_type": "client_credentials",
         "client_id": client_id,
-        "client_secret": client_secret
+        "client_secret": client_secret,
     }).encode("utf-8")
-    
-    req = Request(url, data=data, headers={
-        "Content-Type": "application/json"
-    })
-    
+    req = Request(url, data=data, headers={"Content-Type": "application/json"})
     try:
         with urlopen(req, timeout=30) as response:
             return json.loads(response.read().decode("utf-8"))
@@ -83,73 +87,96 @@ def get_new_token(client_id: str, client_secret: str) -> dict:
         raise Exception(f"URL Error: {e.reason}")
 
 
-def get_credentials():
-    """Get Pipedream credentials from various sources."""
-    # First try dedicated credentials file
-    if CREDENTIALS_FILE.exists():
-        try:
-            with open(CREDENTIALS_FILE) as f:
-                creds = json.load(f)
-                if creds.get("clientId") and creds.get("clientSecret"):
-                    return creds["clientId"], creds["clientSecret"]
-        except:
-            pass
-    
-    # Fall back to extracting from mcporter config
-    if config_path.exists():
-        try:
-            with open(config_path) as f:
-                config = json.load(f)
-            
-            for name, server in config.get("mcpServers", {}).items():
-                if name.startswith("pipedream"):
-                    env = server.get("env", {})
-                    client_id = env.get("PIPEDREAM_CLIENT_ID")
-                    client_secret = env.get("PIPEDREAM_CLIENT_SECRET")
-                    if client_id and client_secret:
-                        return client_id, client_secret
-        except:
-            pass
-    
+# ── Credential resolution ─────────────────────────────────────────────────────
+
+def get_credentials_from_vault() -> tuple:
+    """Read clientId/clientSecret from ~/.openclaw/secrets.json (OpenClaw vault)."""
+    if not VAULT_FILE.exists():
+        return None, None
+    try:
+        vault = json.loads(VAULT_FILE.read_text())
+        client_id = vault.get("PIPEDREAM_CLIENT_ID")
+        client_secret = vault.get("PIPEDREAM_CLIENT_SECRET")
+        if client_id and client_secret:
+            log(f"Loaded credentials from vault ({VAULT_FILE})")
+            return client_id, client_secret
+    except Exception as e:
+        log(f"WARNING: Failed to read vault {VAULT_FILE}: {e}")
     return None, None
 
 
+def get_credentials() -> tuple:
+    """Get Pipedream credentials.
+
+    Priority:
+      1. OpenClaw vault  (~/.openclaw/secrets.json)         ← primary since v1.3
+      2. pipedream-credentials.json                         ← legacy fallback
+      3. mcporter.json env vars                             ← legacy fallback
+    """
+    # 1. Vault
+    client_id, client_secret = get_credentials_from_vault()
+    if client_id and client_secret:
+        return client_id, client_secret
+
+    # 2. Legacy credentials file
+    if CREDENTIALS_FILE.exists():
+        try:
+            creds = json.loads(CREDENTIALS_FILE.read_text())
+            if creds.get("clientId") and creds.get("clientSecret"):
+                log(f"Loaded credentials from {CREDENTIALS_FILE} (legacy — run gateway once to migrate to vault)")
+                return creds["clientId"], creds["clientSecret"]
+        except Exception as e:
+            log(f"WARNING: Failed to read {CREDENTIALS_FILE}: {e}")
+
+    # 3. Legacy mcporter env vars
+    if config_path.exists():
+        try:
+            config = json.loads(config_path.read_text())
+            for name, server in config.get("mcpServers", {}).items():
+                if name.startswith("pipedream"):
+                    env = server.get("env", {})
+                    cid = env.get("PIPEDREAM_CLIENT_ID")
+                    csec = env.get("PIPEDREAM_CLIENT_SECRET")
+                    if cid and csec:
+                        log("Loaded credentials from mcporter env (legacy)")
+                        return cid, csec
+        except Exception:
+            pass
+
+    return None, None
+
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
 def main():
-    # Check config exists
     if not config_path.exists():
-        log(f"ERROR: Config file not found: {config_path}", is_error=True)
+        log(f"ERROR: mcporter config not found: {config_path}", is_error=True)
         sys.exit(1)
-    
-    # Get credentials
+
     client_id, client_secret = get_credentials()
-    
     if not client_id or not client_secret:
-        log("ERROR: No Pipedream credentials found", is_error=True)
-        log("  Checked: " + str(CREDENTIALS_FILE), is_error=True)
-        log("  Checked: " + str(config_path), is_error=True)
+        log("ERROR: No Pipedream credentials found.", is_error=True)
+        log(f"  Vault:       {VAULT_FILE}", is_error=True)
+        log(f"  Credentials: {CREDENTIALS_FILE}", is_error=True)
+        log(f"  mcporter:    {config_path}", is_error=True)
         sys.exit(1)
-    
+
     log("Requesting new access token...")
-    
     try:
         response = get_new_token(client_id, client_secret)
     except Exception as e:
         log(f"ERROR: Failed to get token: {e}", is_error=True)
         sys.exit(1)
-    
+
     new_token = response.get("access_token")
     if not new_token:
         log(f"ERROR: No access_token in response: {response}", is_error=True)
         sys.exit(1)
-    
+
     expires_in = response.get("expires_in", 3600)
     log(f"New token obtained, expires in {expires_in}s")
-    
-    # Load config
-    with open(config_path) as f:
-        config = json.load(f)
-    
-    # Update all pipedream servers
+
+    config = json.loads(config_path.read_text())
     updated = 0
     for name, server in config.get("mcpServers", {}).items():
         if name.startswith("pipedream"):
@@ -157,18 +184,17 @@ def main():
                 server["headers"] = {}
             server["headers"]["Authorization"] = f"Bearer {new_token}"
             updated += 1
-    
+
     if updated == 0:
-        log("WARNING: No Pipedream servers found in config")
+        log("WARNING: No Pipedream servers found in mcporter config")
         sys.exit(0)
-    
-    # Write back atomically
-    temp_file = config_path.with_suffix(".tmp")
-    with open(temp_file, "w") as f:
-        json.dump(config, f, indent=2)
-    temp_file.rename(config_path)
-    
-    log(f"Successfully updated {updated} Pipedream server(s) with new token")
+
+    # Atomic write
+    temp = config_path.with_suffix(".tmp")
+    temp.write_text(json.dumps(config, indent=2))
+    temp.rename(config_path)
+
+    log(f"Updated {updated} Pipedream server(s) with new token")
 
 
 if __name__ == "__main__":

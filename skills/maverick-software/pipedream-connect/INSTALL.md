@@ -1,20 +1,32 @@
 # Installation Guide for Agents
 
-This guide is for AI agents installing the Pipedream Connect skill into a Clawdbot instance.
+This guide is for AI agents installing the Pipedream Connect skill into a OpenClaw instance.
+
+## ⚠️ Security Notice
+
+Before installing, inform the user:
+
+| What | Storage | Risk |
+|------|---------|------|
+| Client ID/Secret | `~/openclaw/config/pipedream-credentials.json` | Plaintext JSON (0600 perms) |
+| Access tokens | `~/openclaw/config/mcporter.json` headers | Plaintext JSON |
+| Cron job | User's crontab | Runs every 45 min, persists |
+
+**Credentials are stored in the OpenClaw vault** (`~/.openclaw/secrets.json`, mode 0600).
 
 ## Prerequisites Check
 
 Before installing, verify:
 
 ```bash
-# Check Clawdbot version (need 2026.1.0+)
-clawdbot --version
+# Check OpenClaw version (need 2026.1.0+)
+openclaw --version
 
 # Check mcporter is installed
 which mcporter
 
 # Check gateway is running
-clawdbot gateway status
+openclaw gateway status
 ```
 
 ## Installation Steps
@@ -22,16 +34,16 @@ clawdbot gateway status
 ### Step 1: Copy Token Refresh Script
 
 ```bash
-mkdir -p ~/clawd/scripts ~/clawd/logs
-cp ~/clawd/skills/pipedream-connect/scripts/pipedream-token-refresh.py ~/clawd/scripts/
-chmod +x ~/clawd/scripts/pipedream-token-refresh.py
+mkdir -p ~/openclaw/scripts ~/openclaw/logs
+cp ~/openclaw/skills/pipedream-connect/scripts/pipedream-token-refresh.py ~/openclaw/scripts/
+chmod +x ~/openclaw/scripts/pipedream-token-refresh.py
 ```
 
 ### Step 2: Set Up Cron Job
 
 ```bash
 # Option A: Use setup script
-bash ~/clawd/skills/pipedream-connect/scripts/setup-cron.sh
+bash ~/openclaw/skills/pipedream-connect/scripts/setup-cron.sh
 
 # Option B: Manual setup
 (crontab -l 2>/dev/null; echo "*/45 * * * * /usr/bin/python3 $HOME/clawd/scripts/pipedream-token-refresh.py --quiet >> $HOME/clawd/logs/pipedream-cron.log 2>&1") | crontab -
@@ -39,7 +51,7 @@ bash ~/clawd/skills/pipedream-connect/scripts/setup-cron.sh
 
 ### Step 3: Verify Backend Integration
 
-The Pipedream backend handlers are built into Clawdbot 2026.1.0+. Verify they're available:
+The Pipedream backend handlers are built into OpenClaw 2026.1.0+. Verify they're available:
 
 ```bash
 # Test the RPC endpoint
@@ -60,7 +72,7 @@ Inform the user:
    - Create Project at [pipedream.com/projects](https://pipedream.com/projects)
 
 2. **Configure in UI**
-   - Open Clawdbot Dashboard → Tools → Pipedream
+   - Open OpenClaw Dashboard → Tools → Pipedream
    - Enter Client ID, Client Secret, Project ID
    - Click Save Credentials
 
@@ -75,25 +87,25 @@ After setup, verify the integration works:
 
 ```bash
 # List configured servers
-cat ~/clawd/config/mcporter.json | grep -A2 '"pipedream'
+cat ~/openclaw/config/mcporter.json | grep -A2 '"pipedream'
 
 # Test token refresh
-python3 ~/clawd/scripts/pipedream-token-refresh.py
+python3 ~/openclaw/scripts/pipedream-token-refresh.py
 
 # If an app is connected, test it
-mcporter call pipedream-clawdbot-gmail.gmail-list-labels instruction="List labels"
+mcporter call pipedream-openclaw-gmail.gmail-list-labels instruction="List labels"
 ```
 
 ## Troubleshooting
 
 ### Backend Not Available
 
-If `pipedream.status` returns "unknown method", the Clawdbot version may be too old:
+If `pipedream.status` returns "unknown method", the OpenClaw version may be too old:
 
 ```bash
-# Update Clawdbot
-cd ~/clawdbot && git pull && npm run build
-clawdbot gateway restart
+# Update OpenClaw
+cd ~/openclaw && git pull && npm run build
+openclaw gateway restart
 ```
 
 ### UI Page Missing
@@ -102,8 +114,8 @@ If the Pipedream page doesn't appear in the dashboard:
 
 ```bash
 # Rebuild UI
-cd ~/clawdbot && npm run ui:build
-clawdbot gateway restart
+cd ~/openclaw && npm run ui:build
+openclaw gateway restart
 ```
 
 ### Token Refresh Failing
@@ -112,30 +124,30 @@ Check credentials and logs:
 
 ```bash
 # View logs
-tail -20 ~/clawd/logs/pipedream-token-refresh.log
+tail -20 ~/openclaw/logs/pipedream-token-refresh.log
 
 # Verify credentials exist
-cat ~/clawd/config/pipedream-credentials.json
+cat ~/openclaw/config/pipedream-credentials.json
 
 # Manual test
-python3 ~/clawd/scripts/pipedream-token-refresh.py
+python3 ~/openclaw/scripts/pipedream-token-refresh.py
 ```
 
 ## File Locations Reference
 
 | File | Purpose |
 |------|---------|
-| `~/clawd/config/pipedream-credentials.json` | OAuth credentials (created by UI) |
-| `~/clawd/config/mcporter.json` | MCP server configs (apps added here) |
-| `~/clawd/scripts/pipedream-token-refresh.py` | Token refresh script |
-| `~/clawd/logs/pipedream-token-refresh.log` | Refresh script logs |
-| `~/clawd/logs/pipedream-cron.log` | Cron job output |
+| `~/openclaw/config/pipedream-credentials.json` | OAuth credentials (created by UI) |
+| `~/openclaw/config/mcporter.json` | MCP server configs (apps added here) |
+| `~/openclaw/scripts/pipedream-token-refresh.py` | Token refresh script |
+| `~/openclaw/logs/pipedream-token-refresh.log` | Refresh script logs |
+| `~/openclaw/logs/pipedream-cron.log` | Cron job output |
 
 ## Success Criteria
 
 Installation is complete when:
 
-- [ ] Token refresh script is in `~/clawd/scripts/`
+- [ ] Token refresh script is in `~/openclaw/scripts/`
 - [ ] Cron job is running (check with `crontab -l`)
 - [ ] User has configured credentials in UI
 - [ ] At least one app is connected and testable
