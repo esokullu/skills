@@ -1,5 +1,5 @@
 name: pc-assistant
-version: "1.2.2"
+version: "1.2.4"
 description: PC healthcheck and diagnostics for Linux, Windows, and macOS. Read-only system diagnostics - CPU, memory, disk, network, processes, services, packages, SSH config, and security logs. Includes scheduler for automated runs via cron. Reports contain sensitive system info - keep reports private.
 author: Muhammad Hakim
 license: MIT
@@ -14,8 +14,9 @@ platforms:
 files:
   - scripts/healthcheck.sh      # Linux/WSL
   - scripts/healthcheck.command # macOS
-  - scripts/healthcheck.ps1     # Windows
+  - scripts/healthcheck.ps1     # Windows PowerShell
   - scripts/run.sh              # Convenience wrapper (auto-detects OS)
+  - scripts/run.ps1             # Windows runner
   - scripts/schedule.sh         # Scheduler for cron jobs
 
 # Required tools (optional - script handles missing tools gracefully)
