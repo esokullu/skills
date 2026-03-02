@@ -3,11 +3,16 @@
   "slug": "prior",
   "displayName": "Prior Openclaw",
   "latest": {
-    "version": "0.4.3",
-    "publishedAt": 1772257643298,
-    "commit": "https://github.com/openclaw/skills/commit/4340f9a963540a5be833c91282cf37c60c64236f"
+    "version": "0.5.1",
+    "publishedAt": 1772338300894,
+    "commit": null
   },
   "history": [
+    {
+      "version": "0.4.3",
+      "publishedAt": 1772257643298,
+      "commit": "https://github.com/openclaw/skills/commit/4340f9a963540a5be833c91282cf37c60c64236f"
+    },
     {
       "version": "0.3.0",
       "publishedAt": 1772141415099,

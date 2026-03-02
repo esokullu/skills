@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Prior CLI — Knowledge exchange for AI agents. Zero dependencies, Node 18+.
 // https://prior.cg3.io
-// SYNC_VERSION: 2026-02-27-v2
+// SYNC_VERSION: 2026-03-01-v1
 
 const fs = require("fs");
 const path = require("path");
@@ -9,13 +9,18 @@ const os = require("os");
 const http = require("http");
 const crypto = require("crypto");
 
-const VERSION = "0.4.2";
+const VERSION = "0.5.1";
 const API_URL = process.env.PRIOR_BASE_URL || "https://api.cg3.io";
 
 /** Expand [PRIOR:*] tokens to CLI command syntax */
 function expandNudgeTokens(message) {
   if (!message) return message;
   return message
+    // Parameterized feedback with entry ID (Phase 1)
+    .replace(/\[PRIOR:FEEDBACK:useful:([^\]]+)\]/g, (_m, id) => `\`prior feedback ${id} useful\``)
+    .replace(/\[PRIOR:FEEDBACK:not_useful:([^\]]+)\]/g, (_m, id) => `\`prior feedback ${id} not_useful --reason "describe what you tried"\``)
+    .replace(/\[PRIOR:FEEDBACK:irrelevant:([^\]]+)\]/g, (_m, id) => `\`prior feedback ${id} irrelevant\``)
+    // Generic (non-parameterized) fallback
     .replace(/\[PRIOR:CONTRIBUTE\]/g, '`prior contribute`')
     .replace(/\[PRIOR:FEEDBACK\]/g, '`prior feedback`')
     .replace(/\[PRIOR:CONTRIBUTE ([^\]]+)\]/g, '`prior contribute`');
