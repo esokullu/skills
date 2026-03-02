@@ -3,11 +3,16 @@
   "slug": "consensus-agent-action-guard",
   "displayName": "consensus-agent-action-guard",
   "latest": {
-    "version": "1.1.11",
-    "publishedAt": 1772473051921,
-    "commit": "https://github.com/openclaw/skills/commit/86d857358b0debbbb7d93e02434b5ab0c3abbed1"
+    "version": "1.1.12",
+    "publishedAt": 1772477202310,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.1.11",
+      "publishedAt": 1772473051921,
+      "commit": "https://github.com/openclaw/skills/commit/86d857358b0debbbb7d93e02434b5ab0c3abbed1"
+    },
     {
       "version": "1.1.9",
       "publishedAt": 1772343194655,

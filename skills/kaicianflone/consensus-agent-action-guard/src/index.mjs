@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { rejectUnknown, getLatest, getPersonaSet, getDecisionByKey, writeArtifact, aggregateVotes, makeIdempotencyKey, detectHardBlockFlags, resolveStatePath } from 'consensus-guard-core/src/index.mjs';
+import { rejectUnknown, getLatest, getPersonaSet, getDecisionByKey, writeArtifact, aggregateVotes, makeIdempotencyKey, detectHardBlockFlags, resolveStatePath } from 'consensus-guard-core';
 
 const TOP = new Set(['board_id','proposed_action','constraints','persona_set_id','mode','external_votes']);
 const ACTION = new Set(['action_type','target','summary','irreversible','external_side_effect','risk_level']);
