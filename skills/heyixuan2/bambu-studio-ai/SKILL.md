@@ -1,7 +1,7 @@
 ---
 name: bambu-studio-ai
-description: "From chat to finished print — the first full-pipeline AI 3D printing skill. Single-color (STL) and multi-color AMS (OBJ+MTL) with AI-optimized color pipeline: shadow removal, CIELAB K-means clustering, texture smoothing. Auto-orient, auto-scale, 11-point printability analysis, mesh repair. All 9 Bambu Lab printers. 4 AI 3D generation providers."
-version: "0.18.0"
+description: "From chat to finished print — the first full-pipeline AI 3D printing skill. Single-color (STL) and multi-color AMS (OBJ+MTL) with AI-optimized color pipeline: shadow removal, CIELAB nearest-neighbor color mapping, texture smoothing. Auto-orient, auto-scale, 11-point printability analysis, mesh repair. All 9 Bambu Lab printers. 4 AI 3D generation providers."
+version: "0.20.1"
 author: TieGaier
 metadata:
   openclaw:
@@ -141,6 +141,12 @@ pip3 install bambulabs-api bambu-lab-cloud-api requests trimesh
 | Auto-orient for printing | `python3 scripts/analyze.py model.stl --orient` |
 | Orient + repair combo | `python3 scripts/analyze.py model.stl --orient --repair --material PLA` |
 | Convert to multi-color OBJ | `python3 scripts/colorize.py model.glb --colors "#FF0,#000,#F00,#FFF" --height 80` |
+| Slice model for printing | `python3 scripts/slice.py model.stl --orient --arrange` |
+| Slice with quality preset | `python3 scripts/slice.py model.stl --quality fine` |
+| Slice with specific printer | `python3 scripts/slice.py model.stl --printer H2D --nozzle 0.4` |
+| List available profiles | `python3 scripts/slice.py --list-profiles` |
+| Get printer hardware info | `python3 scripts/bambu.py info` |
+| Send notification | `python3 scripts/bambu.py notify --message "done"` |
 | Single print check | `python3 scripts/monitor.py --once` |
 | Continuous monitoring | `python3 scripts/monitor.py --interval 120` |
 | Monitor with auto-pause | `python3 scripts/monitor.py --interval 120 --auto-pause` |
@@ -158,6 +164,8 @@ Activate this skill when you see:
 | "print this" / "start printing" | Pre-gen flow → `bambu.py print` |
 | "print a ..." / "make me a ..." | Ask: search online or AI generate? |
 | "turn image into 3D" / sends photo | `generate.py image` |
+| "slice this" / "prepare for printing" | `slice.py` with auto-detect |
+| "what nozzle is installed?" | `bambu.py info` |
 | "pause" / "stop" / "resume" printing | `bambu.py pause\|cancel\|resume` |
 | "speed up" / "quiet mode" / "ludicrous" | `bambu.py speed` |
 | "how much filament?" / "AMS" | `bambu.py ams` |
@@ -609,7 +617,7 @@ Default `--format 3mf` unless user specifies otherwise.
 AI-generated models frequently have mesh errors (non-manifold edges, holes, intersections).
 The user MUST visually verify before printing.
 
-#### The 10-Point Printability Check
+#### The 11-Point Printability Check
 
 | # | Check | What It Does |
 |---|-------|-------------|
@@ -797,13 +805,66 @@ python3 scripts/bambu.py speed ludicrous  # Max (H2S: 1000mm/s)
 
 ---
 
+## Known Limitations
+
+| Feature | Status | Note |
+|---------|--------|------|
+| Single-color printing | ✅ Stable | Full pipeline: generate → analyze → slice → print |
+| Multi-color (colorize) | ⚠️ Manual step | OBJ+MTL output works, but user must manually map 43 colors → AMS slots in Bambu Studio |
+| CLI slicing | ✅ Stable | OrcaSlicer backend; Bambu Studio CLI has SEGFAULT bug in v2.5.0 |
+| End-to-end auto-print | 🔜 Planned | Currently requires Bambu Studio preview before printing |
+| OrcaSlicer CLI gcode | ⚠️ Simplified | Start gcode simplified for OrcaSlicer compat; printer firmware handles actual startup sequence |
+
 ## Version History
 
-- **0.9.0** — Cloud login: token caching (24h), verification code patience, LAN recommended by default
-- **0.8.x** — Model sourcing (search before generate), user choice (search/generate/auto)
-- **0.7.x** — analyze.py (10-point check), model requirements table, security scan fixes, README
-- **0.6.0** — Monitor intensity levels, 3MF priority format, mandatory Bambu Studio preview
-- **0.5.x** — Pre-generation research flow, .secrets.example.json, QA fixes
+### 0.20.0
+- **NEW**: `slice.py` — CLI slicer with OrcaSlicer backend
+  - Auto-resolves Bambu Studio profile inheritance chains
+  - Auto-detects printer model, nozzle size from live printer
+  - Quality presets: draft/standard/fine/extra
+  - Auto-orient + auto-arrange flags
+  - 3MF post-processing for BS compatibility
+  - All 9 Bambu Lab printer models supported
+- **NEW**: `bambu.py info` — printer hardware info (model, nozzle, AMS filaments)
+- **NEW**: `bambu.py notify` — send notifications
+- **NEW**: Smart print monitor with anomaly detection
+  - Progress stall detection (>10min)
+  - Temperature anomaly alerts
+  - 30-min progress summaries, immediate anomaly alerts
+  - Auto-pause on critical anomalies
+- Fixed: `bambu.py` dispatch for info/notify/status --json
+- Fixed: `generate.py` --format 3mf now correctly produces .3mf
+- Fixed: `colorize.py` auto-adds .obj extension
+- Fixed: `doctor.py` checks OrcaSlicer installation
+- Fixed: Relative output paths in slice.py
+- Fixed: 3MF compatibility with Bambu Studio 2.5.0
+
+### 0.19.2
+- Fixed: `_safe_split()` with 30s SIGALRM timeout for mesh.split() hang protection
+- Verified with stress test model T12 (Eiffel Tower lattice)
+
+### 0.19.1
+- 17 bug fixes from 3-round audit (B1-B17, R1-R4, D1-D5, O3-O6)
+- `search.py` rewritten to use `ddgs` package (DDG HTML scraping broken)
+- `analyze.py` stdlib imports moved to top
+- Monitor `--status` works offline
+
+
+- **0.19.0** — 13 bug fixes, doctor.py, --confirmed safety gate, color pipeline overhaul (AO delight, shadow-aware mapping, border vote), search rewrite (ddgs), monitor retry logic
+- **0.18.0** — Model search (4 sources), notification system
+- **0.17.x** — Bambu Lab official 43-color palette, direct CIELAB NN (K-means removed), default LAN mode
+- **0.16.x** — Unit detection fix, start_print fix, MTL color fixes, OBJ meter→mm fix
+- **0.15.x** — OBJ mtllib reference fix after rename
+- **0.14.x** — Multi-color AMS: mesh-aware delight, CIELAB mapping, texture smoothing, island cleanup
+- **0.13.x** — GLB→STL/OBJ+MTL conversion, auto-orient, auto-scale
+- **0.12.x** — AI 3D generation (4 providers), prompt enhancement
+- **0.11.0** — Multi-color AMS printing (colorize.py), auto-detect AMS colors
+- **0.10.0** — 11-point analysis, auto mesh repair, requirements.txt
+- **0.9.0** — Cloud login: token caching (24h), verification code patience, LAN recommended
+- **0.8.x** — Model sourcing (search before generate), user choice
+- **0.7.x** — analyze.py, model requirements table, security scan fixes, README
+- **0.6.0** — Monitor intensity levels, 3MF priority, mandatory Bambu Studio preview
+- **0.5.x** — Pre-generation research flow, .secrets.example.json
 - **0.4.0** — 3-phase setup (configure → test → summary)
 - **0.3.x** — Security fixes, config/secrets separation
 - **0.2.0** — Full 9-model support, Cloud+Local dual mode, AI monitoring

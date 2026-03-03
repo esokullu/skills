@@ -4,11 +4,11 @@
 Supports: Meshy, Tripo3D, 3D AI Studio, Printpal
 
 Usage:
-  python3 generate.py text "a phone stand with cable hole"
-  python3 generate.py image photo.jpg
-  python3 generate.py image photo.jpg --prompt "make it a 3D printable model"
-  python3 generate.py status <task_id>
-  python3 generate.py download <task_id> [--format 3mf]
+  python3 scripts/generate.py text "a phone stand with cable hole"
+  python3 scripts/generate.py image photo.jpg
+  python3 scripts/generate.py image photo.jpg --prompt "make it a 3D printable model"
+  python3 scripts/generate.py status <task_id>
+  python3 scripts/generate.py download <task_id> [--format 3mf]
 """
 
 import os
@@ -118,7 +118,9 @@ def enhance_prompt(user_prompt, max_size=None, multicolor=False):
         f"no overhangs beyond 45 degrees from vertical, "
         f"minimum 1.5mm wall thickness, "
         f"no thin protruding features under 2mm. "
-        f"The model must be printable without supports if possible."
+        f"The model must be printable without supports if possible. "
+        f"TEXTURE: Use flat uniform lighting with NO baked shadows, NO ambient occlusion, NO specular highlights in the texture. "
+        f"The texture should be pure albedo/diffuse color only, as if lit by perfectly uniform white light from all directions."
     )
     return enhanced
 
@@ -406,6 +408,57 @@ def get_backend():
 
 # ─── Commands ────────────────────────────────────────────────────────
 
+def _finalize(file_path, target_format="stl"):
+    """Unified post-download processing: validate format, convert, verify."""
+    if not file_path or not os.path.exists(file_path):
+        print(f"❌ File not found: {file_path}")
+        return None
+    
+    # 1. Validate magic bytes
+    with open(file_path, 'rb') as f:
+        magic = f.read(8)
+    actual_ext = None
+    if magic[:4] == b'glTF':
+        actual_ext = '.glb'
+    elif magic[:2] == b'PK':
+        actual_ext = '.3mf'
+    elif magic[:1] == b'v' or magic[:2] == b'# ':
+        actual_ext = '.obj'
+    else:
+        # Binary STL: 80-byte header + 4-byte uint32 face count
+        import struct
+        with open(file_path, 'rb') as f2:
+            f2.seek(80)
+            fc = f2.read(4)
+        if len(fc) == 4:
+            nf = struct.unpack('<I', fc)[0]
+            expected = 80 + 4 + nf * 50
+            if 0 < nf < 50_000_000 and abs(expected - os.path.getsize(file_path)) < 100:
+                actual_ext = '.stl'
+    
+    if actual_ext and not file_path.endswith(actual_ext):
+        correct = file_path.rsplit('.', 1)[0] + actual_ext
+        os.rename(file_path, correct)
+        file_path = correct
+        print(f"🔄 Format corrected → {actual_ext}")
+    
+    # 2. Convert if needed
+    current_ext = os.path.splitext(file_path)[1].lstrip('.').lower()
+    target = target_format.lower().lstrip('.')
+    if current_ext != target and current_ext in ('glb', 'gltf', 'obj'):
+        converted = _convert_model(file_path, target)
+        if converted and converted != file_path:
+            print(f"🔄 Converted {current_ext.upper()} → {target.upper()}")
+            file_path = converted
+    
+    # 3. Verify file is readable
+    size = os.path.getsize(file_path)
+    if size < 100:
+        print(f"⚠️ File suspiciously small ({size} bytes)")
+    
+    return file_path
+
+
 def cmd_text(prompt, wait=False, multicolor=False, **kwargs):
     if not prompt or not prompt.strip():
         print("❌ Empty prompt. Please describe what you want to generate.")
@@ -428,8 +481,8 @@ def cmd_text(prompt, wait=False, multicolor=False, **kwargs):
     if wait:
         return _wait_and_download(backend, task_id, kwargs.get("format", "3mf"))
     else:
-        print(f"\n💡 Check status: python3 generate.py status {task_id}")
-        print(f"💡 Download:     python3 generate.py download {task_id}")
+        print(f"\n💡 Check status: python3 scripts/generate.py status {task_id}")
+        print(f"💡 Download:     python3 scripts/generate.py download {task_id}")
     return task_id
 
 def cmd_image(image_path, prompt="", wait=False, **kwargs):
@@ -443,8 +496,8 @@ def cmd_image(image_path, prompt="", wait=False, **kwargs):
     if wait:
         return _wait_and_download(backend, task_id, kwargs.get("format", "3mf"))
     else:
-        print(f"\n💡 Check status: python3 generate.py status {task_id}")
-        print(f"💡 Download:     python3 generate.py download {task_id}")
+        print(f"\n💡 Check status: python3 scripts/generate.py status {task_id}")
+        print(f"💡 Download:     python3 scripts/generate.py download {task_id}")
     return task_id
 
 def cmd_status(task_id):
@@ -466,7 +519,7 @@ def cmd_status(task_id):
         urls = status.get("model_urls", {})
         if urls:
             print(f"📦 Available formats: {', '.join(urls.keys())}")
-            print(f"\n💡 Download: python3 generate.py download {task_id} --format stl")
+            print(f"\n💡 Download: python3 scripts/generate.py download {task_id} --format stl")
             print(f"   Note: If provider returns GLB, it will be auto-converted to your preferred format.")
     
     return status
@@ -478,6 +531,7 @@ def cmd_download(task_id, fmt="3mf"):
         # Auto-convert to requested format if provider returned different format (e.g., GLB)
         actual_ext = os.path.splitext(path)[1].lower().lstrip('.')
         if actual_ext != fmt.lower():
+            path = _finalize(path)  # Detect actual format from magic bytes
             path = _convert_model(path, fmt)
         size = os.path.getsize(path)
         print(f"✅ Downloaded: {path} ({size / 1024:.1f} KB)")
@@ -487,9 +541,9 @@ def cmd_download(task_id, fmt="3mf"):
             print(f"   ✅ {final_ext.upper()} is Bambu Studio compatible")
         else:
             print(f"   ❌ WARNING: {final_ext.upper()} is NOT compatible with Bambu Studio!")
-            print(f"   Run: python3 generate.py download {task_id} --format stl")
-        print(f"\n💡 Next: python3 analyze.py {os.path.basename(path)}")
-        print(f"         python3 bambu.py print {os.path.basename(path)}")
+            print(f"   Run: python3 scripts/generate.py download {task_id} --format stl")
+        print(f"\n💡 Next: python3 scripts/analyze.py {path}")
+        print(f"         python3 scripts/bambu.py print {os.path.basename(path)}")
     return path
 
 def _wait_and_download(backend, task_id, fmt="stl"):
@@ -514,7 +568,7 @@ def _wait_and_download(backend, task_id, fmt="stl"):
                     print(f"   ❌ API error persisted after {max_502_retries} retries.")
                     print(f"   💡 Try manually: python3 scripts/generate.py status {task_id}")
                     print(f"   💡 Or download: python3 scripts/generate.py download {task_id}")
-                    return None
+                    sys.exit(1)
             raise
         retries_502 = 0  # Reset on success
         state = status["status"]
@@ -527,13 +581,14 @@ def _wait_and_download(backend, task_id, fmt="stl"):
             print(f"\n✅ Done!")
             path = backend.download(task_id, fmt)
             if path:
+                path = _finalize(path, target_format=fmt)
                 print(f"📦 Saved: {path}")
             return path
         elif state == "failed":
             print(f"\n❌ Generation failed")
-            return None
+            sys.exit(1)
     
-    print(f"\n⚠️ Timeout. Check later: python3 generate.py status {task_id}")
+    print(f"\n⚠️ Timeout. Check later: python3 scripts/generate.py status {task_id}")
     return None
 
 # ─── Main ────────────────────────────────────────────────────────────

@@ -39,14 +39,15 @@ Full-stack Bambu Lab 3D printing skill for [OpenClaw](https://github.com/opencla
 | 🔎 **Model Search** | Search Printables, MakerWorld, Thingiverse, Thangs for existing models |
 | 🎨 **AI 3D Generation** | Text-to-3D and Image-to-3D via Meshy, Tripo3D, Printpal, or 3D AI Studio |
 | 🎨 **Multi-Color AMS** | Auto-detect AMS filaments, GLB→OBJ+MTL color pipeline for multi-color printing |
-| 🔆 **AI Color Optimization** | Delight (shadow removal) + CIELAB K-means clustering + texture smoothing |
+| 🔆 **AI Color Optimization** | Delight (shadow removal) + CIELAB nearest-neighbor + shadow-aware mapping + texture smoothing |
 | 🔍 **11-Point Analysis** | Printability check: walls, overhangs, tolerance, infill, layer height, floating parts |
 | 🔧 **Auto Mesh Repair** | Fix non-manifold edges, holes, bad normals, tiered by severity |
 | 📏 **Auto Orient & Scale** | Optimal print orientation (stable poses), auto unit detection (m→mm) |
 | 🔄 **Format Conversion** | Auto GLB→STL (single-color) or GLB→OBJ+MTL (multi-color) |
 | 📸 **Camera** | RTSP snapshots from printer camera (LAN mode, all models incl. H2D) |
 | 🤖 **AI Print Monitoring** | Periodic snapshots → anomaly detection → auto-pause on failure |
-| 📦 **AMS Management** | Auto-detect filament colors/types, low-filament alerts |
+| 📦 **AMS Management** | Auto-detect filament colors/types via `bambu.py info` |
+| ⚙️ **CLI Slicing** | OrcaSlicer backend, auto profile merging, quality presets, 3MF output |
 | 🔔 **Notifications** | Print complete/fail alerts via Discord, iMessage, Telegram, WhatsApp, Slack |
 | 🌐 **Dual Mode** | LAN (recommended, full features) + Cloud (remote, limited) |
 
@@ -486,8 +487,16 @@ python3 scripts/bambu.py print model.3mf           # Start printing
 python3 scripts/bambu.py pause                     # Pause print
 python3 scripts/bambu.py resume                    # Resume print
 python3 scripts/bambu.py cancel                    # Cancel print
+python3 scripts/bambu.py info                      # Printer hardware info
+python3 scripts/bambu.py notify --message "Done!"  # Send notification
 python3 scripts/bambu.py speed silent              # Quiet mode (night)
 python3 scripts/bambu.py speed standard            # Normal
+
+# Slicing
+python3 scripts/slice.py model.stl                 # Slice with auto-detect
+python3 scripts/slice.py model.stl --orient        # Auto-orient + slice
+python3 scripts/slice.py model.stl --quality fine  # 0.12mm layer height
+python3 scripts/slice.py --list-profiles           # Show available profiles
 python3 scripts/bambu.py speed sport               # Fast
 python3 scripts/bambu.py speed ludicrous           # Maximum
 python3 scripts/bambu.py light on|off              # Chamber light
@@ -614,11 +623,17 @@ bambu-studio-ai/
 │   ├── 3d-generation-apis.md   — 3D provider API endpoints
 │   ├── 3d-prompt-guide.md      — Prompt engineering for 3D models
 │   └── model-specs.md          — All 9 printer specifications
+├── requirements.txt            — Python dependencies
 └── scripts/
     ├── bambu.py                — Printer control (Cloud + LAN, token caching)
     ├── generate.py             — AI 3D generation (4 providers, auto-convert, prompt enhancement)
     ├── analyze.py              — 11-point printability analysis + mesh repair
-    └── monitor.py              — AI print monitoring (anomaly detection)
+    ├── colorize.py             — Multi-color pipeline (AO delight, CIELAB NN, OBJ+MTL export)
+    ├── monitor.py              — Smart print monitor (anomaly detection, notifications)
+    ├── slice.py                — CLI slicer (OrcaSlicer backend, auto profile merging)
+    ├── search.py               — Model search (MakerWorld, Printables, Thingiverse, Thangs)
+    ├── doctor.py               — Dependency doctor (verify all deps + API symbols)
+    └── test_boundary.py        — Boundary condition tests
 ```
 
 ---
@@ -638,7 +653,16 @@ PRs welcome! Areas that need help:
 
 | Version | Changes |
 |---------|---------|
-| **0.10.2** 🏷️ | **First production-ready release** — full bambulabs-api v2.6.6 compatibility, 20+ iterations of real-world testing on H2D |
+| **0.19.0** | Bug fixes (17), color pipeline overhaul (AO delight, shadow-aware mapping, border vote), search rewrite (ddgs), doctor.py cloud+search checks, monitor retry logic, --no_delight flag, --confirmed safety gate |
+| **0.18.0** 🏷️ | Model search (MakerWorld/Printables/Thingiverse/Thangs), notification system, default Bambu Lab color palette |
+| **0.17.0** | Bambu Lab official 43-color palette, direct nearest-neighbor mapping, default LAN mode |
+| **0.16.0** | Unit detection fix, start_print plate_number, MTL color fix |
+| **0.15.0** | GLB format fix, error handling (401/403/429), input validation, pre-decimation |
+| **0.14.0** | GLB-as-3MF fix, meter→mm auto-detection, corrupt file handling |
+| **0.13.0** | 10 bugfixes from sub-agent testing (--wait loop, Tripo path, trimesh API, etc.) |
+| **0.12.0** | Multi-color v2: Delight + CIELAB K-means + texture smoothing |
+| **0.11.0** | Multi-color AMS printing (colorize.py), auto-detect AMS colors |
+| **0.10.2** | **First production-ready release** — bambulabs-api v2.6.6 compat, H2D tested |
 
 ---
 

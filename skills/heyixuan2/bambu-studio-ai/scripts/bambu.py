@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Bambu Lab Printer Control (All Models) — Dual Mode (Cloud API + Local MQTT)
-Usage: python3 bambu.py <command> [args]
+Usage: python3 scripts/bambu.py <command> [args]
 
 Modes:
   BAMBU_MODE=cloud  → Remote via Bambu Cloud API (anywhere)
@@ -182,7 +182,14 @@ class CloudBackend:
                            json={"print": {"command": "print_speed", "param": str(level)}})
 
     def start_print(self, filename, plate_number=1):
-        self.client.start_cloud_print(self.device_id, filename, plate_number=plate_number)
+        # Try multiple calling conventions for different library versions
+        try:
+            self.client.start_cloud_print(self.device_id, filename, plate_number=plate_number)
+        except TypeError:
+            try:
+                self.client.start_cloud_print(self.device_id, filename)
+            except TypeError:
+                self.client.start_cloud_print(device_id=self.device_id, filename=filename)
 
     def disconnect(self):
         pass
@@ -226,9 +233,9 @@ class LocalBackend:
         p = self.printer
         return {
             "nozzle_temp": p.get_nozzle_temperature(),
-            "nozzle_target": p.get_nozzle_temperature(),
+            "nozzle_target": getattr(p, "get_target_nozzle_temperature", p.get_nozzle_temperature)(),
             "bed_temp": p.get_bed_temperature(),
-            "bed_target": p.get_bed_temperature(),
+            "bed_target": p.get_bed_temperature(),  # API limitation: no target temp method
             "state": p.get_current_state(),
             "progress": p.get_percentage(),
             "remaining": p.get_time(),
@@ -328,10 +335,88 @@ def get_backend():
 
 SPEED_NAMES = {1: "Silent", 2: "Standard", 3: "Sport", 4: "Ludicrous"}
 
-def cmd_status():
+def cmd_info(json_output=False):
+    """Get printer hardware info for slicing: model, nozzle, AMS filaments."""
+    info = {
+        "model": _config.get("model") or _config.get("printer_model", "Unknown"),
+        "nozzle_diameter": None,
+        "nozzle_type": None,
+        "filaments": [],
+    }
+
+    if MODE == "local":
+        try:
+            import io, contextlib
+            _buf = io.StringIO()
+            with contextlib.redirect_stdout(_buf), contextlib.redirect_stderr(_buf):
+                backend = get_backend()
+            printer = backend.printer
+            # Nozzle info
+            try:
+                nd = printer.nozzle_diameter
+                info["nozzle_diameter"] = nd() if callable(nd) else nd
+            except: pass
+            try:
+                nt = printer.nozzle_type
+                info["nozzle_type"] = nt() if callable(nt) else nt
+            except: pass
+
+            # AMS filaments
+            try:
+                ams = backend.get_ams()
+                if isinstance(ams, list):
+                    for slot in ams:
+                        if isinstance(slot, dict):
+                            info["filaments"].append({
+                                "slot": slot.get("tray_id", slot.get("slot", "?")),
+                                "color": slot.get("tray_color", slot.get("color", "")),
+                                "type": slot.get("tray_type", slot.get("type", "")),
+                                "name": slot.get("tray_sub_brands", slot.get("name", "")),
+                            })
+                elif hasattr(ams, '__iter__'):
+                    for item in ams:
+                        info["filaments"].append({"raw": str(item)})
+            except: pass
+        except (Exception, SystemExit):
+            # Printer not reachable — show config info only
+            info["_offline"] = True
+    else:
+        # Cloud mode — limited info
+        pass
+
+    if json_output:
+        import json as _json
+        print(_json.dumps(info, ensure_ascii=False))
+    else:
+        if info.get("_offline"):
+            print("⚠️  Printer offline — showing config defaults")
+        print(f"🖨️  Model: {info['model']}")
+        nd = info.get('nozzle_diameter')
+        nt = info.get('nozzle_type')
+        if nd:
+            print(f"🔧 Nozzle: {nd}mm" + (f" ({nt})" if nt else ""))
+        if info['filaments']:
+            print(f"🧵 AMS Filaments:")
+            for f in info['filaments']:
+                if 'raw' in f:
+                    print(f"   {f['raw']}")
+                else:
+                    color = f.get('color', '')
+                    ftype = f.get('type', '')
+                    fname = f.get('name', '')
+                    print(f"   Slot {f.get('slot','?')}: {ftype} {fname} #{color}")
+        else:
+            print(f"🧵 No AMS filament info available")
+
+
+def cmd_status(json_output=False):
     backend = get_backend()
     try:
         s = backend.get_status()
+        if json_output:
+            import json as _json
+            print(_json.dumps(s))
+            return
         mode_label = "☁️ Cloud" if MODE == "cloud" else "🔌 LAN"
         print(f"{mode_label} | Bambu Lab {_config.get('model', 'Unknown')}")
 
@@ -433,7 +518,11 @@ def cmd_speed(mode):
     try: b.set_speed(level); print(f"🏎️ Speed: {mode.capitalize()}")
     finally: b.disconnect()
 
-def cmd_print(filename):
+def cmd_print(filename, confirmed=False):
+    if not confirmed:
+        print("⛔ Safety: Preview in Bambu Studio first, then re-run with --confirmed")
+        print(f"   python3 scripts/bambu.py print {filename} --confirmed")
+        sys.exit(1)
     b = get_backend()
     try: b.start_print(filename, plate_number=1); print(f"✅ Started printing: {filename}")
     except Exception as e: print(f"❌ Error: {e}")
@@ -552,15 +641,17 @@ def main():
         epilog=f"Current mode: {MODE.upper()} | Set BAMBU_MODE=cloud or BAMBU_MODE=local"
     )
     sub = parser.add_subparsers(dest="command")
-    sub.add_parser("status")
+    sp_info = sub.add_parser("info"); sp_info.add_argument("--json", action="store_true", help="JSON output")
+    sp_status = sub.add_parser("status"); sp_status.add_argument("--json", action="store_true", help="JSON output")
     sub.add_parser("progress")
     sub.add_parser("pause")
     sub.add_parser("resume")
     sub.add_parser("cancel")
     sub.add_parser("ams")
     sub.add_parser("snapshot")
-    p = sub.add_parser("print"); p.add_argument("filename")
+    p = sub.add_parser("print"); p.add_argument("--confirmed", action="store_true", help="Confirm previewed in Bambu Studio"); p.add_argument("filename")
     p = sub.add_parser("gcode", help="Send raw G-code (local only)"); p.add_argument("code")
+    p = sub.add_parser("notify", help="Send notification"); p.add_argument("--title", default="Bambu Studio AI"); p.add_argument("--message", required=True); p.add_argument("--image")
     p = sub.add_parser("light"); p.add_argument("state", choices=["on", "off"])
     p = sub.add_parser("speed"); p.add_argument("mode", choices=["silent", "standard", "sport", "ludicrous"])
 
@@ -569,13 +660,19 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    cmds = {"status": cmd_status, "progress": cmd_progress, "pause": cmd_pause,
+    cmds = {"progress": cmd_progress, "pause": cmd_pause,
             "resume": cmd_resume, "cancel": cmd_cancel, "ams": cmd_ams, "snapshot": cmd_snapshot}
 
-    if args.command in cmds:
+    if args.command == "status":
+        cmd_status(json_output=getattr(args, "json", False))
+    elif args.command == "info":
+        cmd_info(json_output=getattr(args, "json", False))
+    elif args.command == "notify":
+        notify(args.title, args.message)
+    elif args.command in cmds:
         cmds[args.command]()
     elif args.command == "print":
-        cmd_print(args.filename)
+        cmd_print(args.filename, confirmed=args.confirmed)
     elif args.command == "gcode":
         cmd_gcode(args.code)
     elif args.command == "light":
