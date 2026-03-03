@@ -77,13 +77,17 @@ curl -s -H "X-Api-Key: $SEERR_API_KEY" "$SEERR_URL/api/v1/tv/TMDB_ID"
 ## Workflow
 
 1. Search for the title
-2. Filter to `movie`/`tv` results; present top 1–3 matches (title, year, rating, overview)
-3. Check if already available:
-   - If `mediaInfo.status` = 5 (available), inform the user and skip requesting
-   - If NOT available (status is 1-4, or missing), automatically request it via the API
-4. After requesting, confirm with the user that it was queued
-5. For TV, ask whether the user wants all seasons or specific ones unless they already specified
-6. Always include the Seerr URL link in the response
+2. Filter to `movie`/`tv` results
+3. For each result, send a separate Discord message with:
+   - Poster image via `media` field
+   - Title, year, rating, genres
+   - Brief overview
+   - Status emoji + text
+   - Seerr link
+4. Check availability and auto-request if not available:
+   - If `mediaInfo.status` = 5 (available), just show status
+   - Otherwise, request via API and confirm
+5. Send each result as its own message (don't combine into one message)
 
 ## Discord Integration
 
@@ -91,23 +95,21 @@ When responding in Discord, send plain text messages with inline links and optio
 
 ### Discord Message Format
 
+Send each result as its own separate message. Use the `media` field to embed the poster.
+
 ```json
 {
   "action": "send",
   "channel": "discord",
   "to": "channel:<CHANNEL_ID>",
-  "message": "<title> (<year>) — ⭐ <rating>\n<genre>\n\n<overview snippet...>\n\n<status emoji> <status text>\n\n🔗 [View in Seerr]($SEERR_URL/<mediaType>/<tmdbId>)",
-  "media": "<poster image URL>"
+  "message": "<emoji> **<title>** (<year>) — ⭐ <rating>\n<genre1>, <genre2>\n\n<overview (truncated to 1-2 sentences)>\n\n<status emoji> <status text>\n\n🔗 [View in Seerr]($SEERR_URL/<mediaType>/<tmdbId>)",
+  "media": "https://image.tmdb.org/t/p/w500/<posterPath>"
 }
 ```
 
 ### Key Points
 
-- Send plain text with markdown formatting — bold titles, emoji for status
-- Use `media` field to attach poster images from TMDB (e.g., `https://image.tmdb.org/t/p/w500/<posterPath>`)
-- Use inline links for the Seerr URL: `[$SEERR_URL/<mediaType>/<tmdbId>]`
-- Include status badges using emoji: ✅ available, ⏳ pending/processing, 🔄 partially available
-- After presenting a result, check if it's already available:
-  - If NOT available (`mediaInfo.status` != 5), automatically request it via the API
-  - Then respond with confirmation that it was requested
-- Always include the Seerr link so user can view in UI if they want
+- Send each search result as a **separate message** (one message per result)
+- Use `media` field for the poster image (TMDB URL format: `https://image.tmdb.org/t/p/w500/<posterPath>`)
+- Include status emoji: ✅ available, ⏳ pending, 🔄 processing/partially available
+- Auto-request if not available, then update the message or send follow-up confirmation

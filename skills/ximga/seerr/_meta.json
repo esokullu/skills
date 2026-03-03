@@ -3,11 +3,16 @@
   "slug": "seerr",
   "displayName": "Seerr Media Requests",
   "latest": {
-    "version": "1.4.0",
-    "publishedAt": 1772567621444,
-    "commit": "https://github.com/openclaw/skills/commit/69aa839f658caffefb09349c4ebbe67559d7740c"
+    "version": "1.5.0",
+    "publishedAt": 1772567823912,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.4.0",
+      "publishedAt": 1772567621444,
+      "commit": "https://github.com/openclaw/skills/commit/69aa839f658caffefb09349c4ebbe67559d7740c"
+    },
     {
       "version": "1.3.0",
       "publishedAt": 1772567339694,
