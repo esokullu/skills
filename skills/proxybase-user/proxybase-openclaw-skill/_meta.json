@@ -1,11 +1,17 @@
 {
   "owner": "proxybase-user",
   "slug": "proxybase-openclaw-skill",
-  "displayName": "Proxybase Openclaw Skill",
+  "displayName": "ProxyBase",
   "latest": {
-    "version": "1.0.0",
-    "publishedAt": 1772101051405,
-    "commit": "https://github.com/openclaw/skills/commit/1685b944fc6b1dc207ac9400ee6e2d9b3407d409"
+    "version": "1.0.11",
+    "publishedAt": 1772522543533,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1772101051405,
+      "commit": "https://github.com/openclaw/skills/commit/1685b944fc6b1dc207ac9400ee6e2d9b3407d409"
+    }
+  ]
 }
