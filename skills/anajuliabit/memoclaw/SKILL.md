@@ -1,6 +1,6 @@
 ---
 name: memoclaw
-version: 1.18.1
+version: 1.19.1
 description: |
   Memory-as-a-Service for AI agents. Store and recall memories with semantic
   vector search. 100 free calls per wallet, then x402 micropayments.
@@ -249,17 +249,19 @@ Use namespaces to organize memories:
 
 ### Anti-patterns
 
-❌ **Store-everything syndrome** — Don't store every sentence. Be selective.
-❌ **Recall-on-every-turn** — Don't recall before every response. Only when relevant.
-❌ **Ignoring duplicates** — Always recall before storing to check for existing memories.
-❌ **Vague content** — "User likes editors" is useless. Be specific: "User prefers VSCode with vim bindings."
-❌ **Storing secrets** — Never store passwords, API keys, or tokens. No exceptions.
-❌ **Namespace sprawl** — Don't create a new namespace for every conversation. Use `default` + project namespaces.
-❌ **Skipping importance** — Leaving importance at default 0.5 for everything defeats ranking.
-❌ **Forgetting memory_type** — Always set it. Decay half-lives depend on it.
-❌ **Never consolidating** — Over time, memories become fragmented. Run consolidate periodically.
-❌ **Ignoring decay** — Memories naturally decay. Review stale memories regularly.
-❌ **Single namespace for everything** — Use namespaces to isolate different contexts.
+Things that waste calls or degrade recall quality:
+
+- **Store-everything syndrome** — Don't store every sentence. Be selective.
+- **Recall-on-every-turn** — Only recall when the conversation actually needs past context.
+- **Ignoring duplicates** — Recall before storing to check for existing memories.
+- **Vague content** — "User likes editors" is useless. "User prefers VSCode with vim bindings" is searchable.
+- **Storing secrets** — Never store passwords, API keys, or tokens. No exceptions.
+- **Namespace sprawl** — Stick to `default` + project namespaces. One per conversation is overkill.
+- **Skipping importance** — Leaving everything at default 0.5 defeats ranking entirely.
+- **Forgetting memory_type** — Always set it. Decay half-lives depend on the type.
+- **Never consolidating** — Memories fragment over time. Run consolidate periodically.
+- **Ignoring decay** — Memories decay naturally. Review stale ones with `memoclaw suggested --category stale`.
+- **Single namespace for everything** — Use namespaces to keep different contexts separate.
 
 ### Example flow
 
@@ -344,6 +346,8 @@ memoclaw bulk-delete uuid1 uuid2 uuid3
 
 # Delete all memories in a namespace
 memoclaw purge --namespace old-project
+# ⚠️ Without --namespace, purge deletes ALL memories! Always scope it.
+# memoclaw purge --force  ← DANGEROUS: wipes everything
 
 # Manage relations
 memoclaw relations list <memory-id>
@@ -394,6 +398,36 @@ memoclaw completions bash >> ~/.bashrc
 memoclaw completions zsh >> ~/.zshrc
 ```
 
+**Global flags (work with any command):**
+```bash
+-j, --json              # Machine-readable JSON output (best for agent piping)
+-O, --output <file>     # Write output to file instead of stdout
+-F, --field <name>      # Extract a specific field from output
+-k, --columns <cols>    # Select columns: id,content,importance,tags,created
+--raw                   # Content-only output (ideal for piping to other tools)
+--wide                  # Wider columns in table output
+-r, --reverse           # Reverse sort order
+-m, --sort-by <field>   # Sort by: id, importance, created, updated
+-w, --watch             # Continuous polling for changes
+--watch-interval <ms>   # Polling interval for watch mode (default: 5000)
+-s, --truncate <n>      # Truncate output to n characters
+--no-truncate           # Disable truncation
+-c, --concurrency <n>   # Parallel imports (default: 1)
+-y, --yes               # Skip confirmation prompts (alias for --force)
+-T, --timeout <sec>     # Request timeout (default: 30)
+-p, --pretty            # Pretty-print JSON output
+-q, --quiet             # Suppress non-essential output
+```
+
+**Agent-friendly patterns:**
+```bash
+memoclaw recall "query" --json | jq '.memories[0].content'   # parse with jq
+memoclaw list --raw --limit 5                                 # pipe content only
+memoclaw list --field importance --limit 1                    # extract single field
+memoclaw export --output backup.json                          # save to file
+memoclaw list --sort-by importance --reverse --limit 5        # lowest importance first
+```
+
 **Setup:**
 ```bash
 npm install -g memoclaw
@@ -404,6 +438,9 @@ export MEMOCLAW_PRIVATE_KEY=0xYourPrivateKey
 
 **Environment variables:**
 - `MEMOCLAW_PRIVATE_KEY` — Your wallet private key for auth (required, or use `memoclaw init`)
+- `MEMOCLAW_URL` — Custom API endpoint (default: `https://api.memoclaw.com`)
+- `NO_COLOR` — Disable colored output (useful in CI/logs)
+- `DEBUG` — Enable debug logging for troubleshooting
 
 **Free tier:** First 100 calls are free. The CLI automatically handles wallet signature auth and falls back to x402 payment when free tier is exhausted.
 
@@ -411,14 +448,12 @@ export MEMOCLAW_PRIVATE_KEY=0xYourPrivateKey
 
 ## How it works
 
-MemoClaw uses wallet-based identity. Your wallet address is your user ID.
+Your wallet address is your user ID — no accounts, no API keys. Auth works two ways:
 
-**Two auth methods:**
+1. **Free tier** — Sign a message with your wallet. 100 calls, no payment needed.
+2. **x402 payment** — After free tier, each call includes a USDC micropayment on Base.
 
-1. **Free Tier (default)** — Sign a message with your wallet, get 100 free calls
-2. **x402 Payment** — Pay per call with USDC on Base (kicks in after free tier)
-
-The CLI handles both automatically. Just set your private key and go.
+The CLI handles both automatically.
 
 ## Pricing
 
@@ -442,16 +477,10 @@ The CLI handles both automatically. Just set your private key and go.
 
 ## Setup
 
-```bash
-npm install -g memoclaw
-memoclaw init    # Interactive setup — saves to ~/.memoclaw/config.json
-memoclaw status  # Check your free tier remaining
-```
-
-That's it. `memoclaw init` walks you through wallet setup and saves config locally. The CLI handles wallet signature auth automatically. When free tier runs out, it falls back to x402 payment (requires USDC on Base).
+See the prerequisites checklist at the top and the CLI usage section for `memoclaw init`.
 
 **Docs:** https://docs.memoclaw.com
-**MCP Server:** `npm install -g memoclaw-mcp` (for tool-based access from MCP-compatible clients)
+**MCP Server:** `npm install -g memoclaw-mcp` (tool-based access from MCP-compatible clients)
 
 ## API reference
 
@@ -503,9 +532,13 @@ All errors follow this format:
 ```
 
 Error codes:
+- `UNAUTHORIZED` (401) — Missing or invalid wallet signature
 - `PAYMENT_REQUIRED` (402) — Missing or invalid x402 payment
-- `VALIDATION_ERROR` (422) — Invalid request body
 - `NOT_FOUND` (404) — Memory not found
+- `CONFLICT` (409) — Attempted to modify an immutable memory
+- `PAYLOAD_TOO_LARGE` (413) — Content exceeds 8192 character limit
+- `VALIDATION_ERROR` (422) — Invalid request body
+- `RATE_LIMITED` (429) — Too many requests, back off and retry
 - `INTERNAL_ERROR` (500) — Server error
 
 ---
@@ -516,9 +549,12 @@ When MemoClaw API calls fail, follow this strategy:
 
 ```
 API call failed?
+├─ 401 UNAUTHORIZED → Wallet key missing or invalid. Run `memoclaw config check`.
 ├─ 402 PAYMENT_REQUIRED
 │  ├─ Free tier? → Check MEMOCLAW_PRIVATE_KEY, run `memoclaw status`
 │  └─ Paid tier? → Check USDC balance on Base
+├─ 409 CONFLICT → Immutable memory — cannot update or delete. Store a new one instead.
+├─ 413 PAYLOAD_TOO_LARGE → Content exceeds 8192 chars. Split into smaller memories.
 ├─ 422 VALIDATION_ERROR → Fix request body (check field constraints above)
 ├─ 404 NOT_FOUND → Memory was deleted or never existed
 ├─ 429 RATE_LIMITED → Back off 2-5 seconds, retry once
