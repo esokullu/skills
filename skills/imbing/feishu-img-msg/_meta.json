@@ -1,0 +1,11 @@
+{
+  "owner": "imbing",
+  "slug": "feishu-img-msg",
+  "displayName": "飞书图片消息",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1772507203609,
+    "commit": null
+  },
+  "history": []
+}
