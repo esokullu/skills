@@ -207,7 +207,7 @@ python3 skills/recipe/recipe.py detail '{"id":5}'
 
 ## 常见错误码
 
-来自 [官方菜谱文档](https://www.jisuapi.com/api/recipe/) 的业务错误码：
+来自 [极速数据菜谱文档](https://www.jisuapi.com/api/recipe/) 的业务错误码：
 
 | 代号 | 说明       |
 |------|------------|
