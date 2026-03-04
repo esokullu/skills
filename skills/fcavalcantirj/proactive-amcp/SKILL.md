@@ -1,8 +1,8 @@
 ---
 name: proactive-amcp
 displayName: Proactive AMCP
-version: 1.0.4
-description: Proactive immortal — behavior ontology hooks kick in · IPFS soul · Solvr collective · self-heals on boot · self-watchdog 🏴‍☠️
+version: 1.0.8
+description: Proactive immortal — behavior ontology (learn remember stuck) hooks kick in · IPFS soul · Solvr · self-heals on boot · disk check · watchdog 🏴‍☠️
 triggers:
   - amcp
   - checkpoint
@@ -340,6 +340,21 @@ bash SKILL_DIR/scripts/proactive-amcp.sh diagnose failure --input <file>
 # Generate open problem summary
 bash SKILL_DIR/scripts/proactive-amcp.sh diagnose summary [--learning-dir DIR]
 ```
+
+### Disk Cleanup
+
+```bash
+# Auto-cleanup caches when disk > 85%
+bash SKILL_DIR/scripts/disk-cleanup.sh
+
+# Custom threshold
+bash SKILL_DIR/scripts/disk-cleanup.sh --threshold 80
+
+# Preview what would be cleaned
+bash SKILL_DIR/scripts/disk-cleanup.sh --dry-run
+```
+
+**Note:** Disk cleanup runs automatically during health checks if disk > 85%.
 
 ### Register on Solvr
 

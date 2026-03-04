@@ -3,11 +3,16 @@
   "slug": "proactive-amcp",
   "displayName": "Proactive AMCP",
   "latest": {
-    "version": "1.0.4",
-    "publishedAt": 1772328237677,
-    "commit": "https://github.com/openclaw/skills/commit/285ab4a7c44f1f77943d273f40e4b0c55b511969"
+    "version": "1.0.8",
+    "publishedAt": 1772383766047,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.4",
+      "publishedAt": 1772328237677,
+      "commit": "https://github.com/openclaw/skills/commit/285ab4a7c44f1f77943d273f40e4b0c55b511969"
+    },
     {
       "version": "1.0.1",
       "publishedAt": 1772327982125,
