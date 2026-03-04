@@ -20,14 +20,50 @@
     "daily_limit": 3,
     "cooldown_sec": 7200,
     "active_thresholds_sec": {
+      "morning": 7200,
       "afternoon": 10800,
       "evening": 14400,
       "night": 18000
     },
     "mode_windows": {
+      "morning": "09:30",
       "afternoon": "14:30",
       "evening": "19:30",
       "night": "22:30"
+    },
+    "cron_jobs": {
+      "morning": {
+        "name": "companion-morning",
+        "description": "Owner-only cyber girlfriend morning greeting",
+        "cron": "30 9 * * *",
+        "tz": "Asia/Shanghai",
+        "system_event": "执行陪伴心跳-早上",
+        "enabled": true
+      },
+      "afternoon": {
+        "name": "companion-afternoon",
+        "description": "Owner-only cyber girlfriend afternoon check-in",
+        "cron": "30 14 * * *",
+        "tz": "Asia/Shanghai",
+        "system_event": "执行陪伴心跳-下午",
+        "enabled": true
+      },
+      "evening": {
+        "name": "companion-evening",
+        "description": "Owner-only cyber girlfriend evening check-in",
+        "cron": "30 19 * * *",
+        "tz": "Asia/Shanghai",
+        "system_event": "执行陪伴心跳-傍晚",
+        "enabled": true
+      },
+      "night": {
+        "name": "companion-night",
+        "description": "Owner-only cyber girlfriend night wrap-up",
+        "cron": "30 22 * * *",
+        "tz": "Asia/Shanghai",
+        "system_event": "执行陪伴心跳-夜间",
+        "enabled": true
+      }
     }
   },
   "behavior": {

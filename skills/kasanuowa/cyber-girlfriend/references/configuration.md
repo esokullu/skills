@@ -25,9 +25,20 @@ Use a single config file. JSON is the simplest default.
 - `quiet_hours_end`
 - `daily_limit`
 - `cooldown_sec`
+- `active_thresholds_sec.morning`
+- `active_thresholds_sec.afternoon`
+- `active_thresholds_sec.evening`
+- `active_thresholds_sec.night`
+- `mode_windows.morning`
 - `mode_windows.afternoon`
 - `mode_windows.evening`
 - `mode_windows.night`
+- `cron_jobs.<mode>.name`
+- `cron_jobs.<mode>.description`
+- `cron_jobs.<mode>.cron`
+- `cron_jobs.<mode>.tz`
+- `cron_jobs.<mode>.system_event`
+- `cron_jobs.<mode>.enabled`
 
 ### `behavior`
 
@@ -55,6 +66,21 @@ Suggested fields:
 
 Do not hardcode a provider or model here unless the user explicitly wants that.
 If the runtime depends on a remote model endpoint, expose retry behavior here rather than hardcoding it in prompts.
+
+### `schedule.cron_jobs`
+
+Use this when the runtime has an external scheduler such as OpenClaw cron.
+
+Recommended fields per mode:
+- `name`: stable cron job name
+- `description`: human-readable purpose
+- `cron`: cron expression
+- `tz`: timezone for the cron expression
+- `system_event`: event text delivered to the runtime
+- `enabled`: optional boolean
+- `id`: optional existing job id for stable patching
+
+Keep these values in config so users can retime `morning|afternoon|evening|night` without editing handler docs or Python code.
 
 ### `sources`
 

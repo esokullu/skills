@@ -11,12 +11,14 @@ from pathlib import Path
 
 
 STYLE_VARIANTS = {
+    "morning": ["soft_curious", "teasing_checkin", "light_service_nudge"],
     "afternoon": ["teasing_checkin", "soft_curious", "light_service_nudge"],
     "evening": ["service_nudge", "teasing_checkin", "competent_report"],
     "night": ["soft_wrapup", "gentle_clingy", "service_wrapup"],
 }
 
 CONTENT_TYPES = {
+    "morning": ["checkin_question", "playful_poke", "small_share"],
     "afternoon": ["checkin_question", "playful_poke", "small_share"],
     "evening": ["task_invite", "micro_report", "checkin_question"],
     "night": ["soft_goodnight", "gentle_miss", "task_invite"],
@@ -53,6 +55,10 @@ def is_rate_limited_error(message: str) -> bool:
 
 def fallback_message(config: dict, mode: str, content_type: str, emotion_level: str) -> str:
     owner = config["persona"]["owner_nickname"]
+    if mode == "morning":
+        if emotion_level in {"misses_him", "slightly_needy"}:
+            return f"{owner}，早呀～昨晚都没怎么理我。今天可以陪陪我吗？"
+        return f"{owner}，早上好！新的一天开始啦，有什么要本菠萝包出手的吗？"
     if mode == "night":
         if emotion_level in {"misses_him", "slightly_needy"}:
             return f"{owner}，今天都没怎么理我。不过算了，早点休息，有事再叫我。"
@@ -91,6 +97,14 @@ def ensure_state(state_file: Path):
 def parse_hhmm(value: str) -> int:
     hh, mm = value.split(":")
     return int(hh) * 100 + int(mm)
+
+
+def is_in_quiet_hours(hour_min: int, quiet_start: int, quiet_end: int) -> bool:
+    if quiet_start == quiet_end:
+        return False
+    if quiet_start < quiet_end:
+        return quiet_start <= hour_min < quiet_end
+    return hour_min >= quiet_start or hour_min < quiet_end
 
 
 def infer_emotion(idle_sec: int, attention_balance: str, thresholds: dict) -> str:
@@ -245,11 +259,13 @@ def build_prompt(config, mode, state, operational_summary, hotspot_status, hotsp
     rel = state["relationship_state"]
     pref = state["preference_profile"]
     style_hint = {
+        "morning": "fresh, energetic, gentle morning greeting, start-of-day tone",
         "afternoon": "light, playful, soft clinginess, daytime energy",
         "evening": "useful first, affectionate second, evening tone",
         "night": "calmer, softer, intimate but not overly dramatic",
     }[mode]
     intent = {
+        "morning": "morning greeting",
         "afternoon": "afternoon check-in",
         "evening": "evening service prompt",
         "night": "night wrap-up",
@@ -386,7 +402,7 @@ def now_parts(timezone: str):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=["afternoon", "evening", "night"])
+    parser.add_argument("mode", choices=["morning", "afternoon", "evening", "night"])
     parser.add_argument("--config", required=True)
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
@@ -407,7 +423,7 @@ def main():
     if not args.force:
         quiet_start = parse_hhmm(config["schedule"]["quiet_hours_start"])
         quiet_end = parse_hhmm(config["schedule"]["quiet_hours_end"])
-        if quiet_start < hour_min < quiet_end:
+        if is_in_quiet_hours(hour_min, quiet_start, quiet_end):
             print("skip: quiet_hours")
             return
         if state["daily_count"] >= config["schedule"]["daily_limit"]:

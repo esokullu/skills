@@ -64,6 +64,7 @@ At minimum, externalize:
 - owner target
 - quiet hours
 - schedule windows
+- cron schedule entries for each mode
 - pacing limits
 - runtime command hooks
 - state/cache paths
@@ -73,6 +74,7 @@ At minimum, externalize:
 
 Implement:
 - modes:
+  - `morning`
   - `afternoon`
   - `evening`
   - `night`
@@ -137,6 +139,8 @@ If the user is on another runtime, adapt the same pattern:
 - generation command
 - outbound send command
 
+For OpenClaw-style runtimes, keep scheduler timing in config rather than hardcoding it in handlers. Users should be able to retime each mode without editing Python.
+
 ## Output Expectations
 
 When implementing this skill for a user:
@@ -154,3 +158,4 @@ Before calling the skill publishable, confirm:
 - X source is optional and configurable
 - runtime-specific instructions use placeholders
 - file paths are examples or config values, not someone else’s machine state
+- local config and runtime state are excluded from what gets published

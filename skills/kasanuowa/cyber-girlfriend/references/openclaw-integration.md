@@ -17,6 +17,7 @@ Typical mapping:
   - `HEARTBEAT.md`
 - runtime script:
   - `workspace/skills/cyber-girlfriend/scripts/companion_ping.py`
+  - `workspace/skills/cyber-girlfriend/scripts/sync_companion_cron.py`
 - optional share source:
   - `workspace/skills/cyber-girlfriend/scripts/fetch_x_hotspots.py`
 - state:
@@ -35,6 +36,7 @@ Point it at the user's real:
 - sessions store path
 - generation/send commands
 - generation retry policy
+- per-mode cron schedule entries
 
 ## What Must Stay Configurable
 
@@ -46,14 +48,25 @@ Point it at the user's real:
 - state paths
 - Chrome binary path
 - X source URL
+- per-mode cron expressions and system events
 
 ## Handler Shape
 
 For each scheduled mode, the handler only needs to:
-1. invoke the companion script with `afternoon|evening|night`
+1. invoke the companion script with `morning|afternoon|evening|night`
 2. report execution status
 
 Keep the handler thin. Put logic in scripts, not markdown prose.
+
+## Scheduler Sync
+
+Store cron timing under `schedule.cron_jobs` in config.
+
+Use:
+- preview commands: `python workspace/skills/cyber-girlfriend/scripts/sync_companion_cron.py --config workspace/skills/cyber-girlfriend/config.local.json`
+- apply config to OpenClaw: `python workspace/skills/cyber-girlfriend/scripts/sync_companion_cron.py --config workspace/skills/cyber-girlfriend/config.local.json --apply`
+
+This keeps timing editable in config instead of hardcoded in `SOUL.md` or shell history.
 
 ## Safety Notes
 

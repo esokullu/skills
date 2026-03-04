@@ -9,6 +9,32 @@ import browser_cookie3
 from playwright.async_api import async_playwright
 
 
+TREND_MARKERS = {
+    "global trending",
+    "trending",
+    "热点",
+    "热搜",
+    "趋势",
+}
+
+NEWS_MARKERS = {
+    "today’s news",
+    "today's news",
+    "news",
+    "新闻",
+}
+
+STOP_MARKERS = {
+    "who to follow",
+    "you might like",
+    "relevant people",
+    "关注推荐",
+    "你可能喜欢",
+}
+
+NEWS_META_MARKERS = ("news", "posts", "trending now", "新闻", "帖子", "热议")
+
+
 def load_cookies(domain_name: str):
     jar = browser_cookie3.chrome(domain_name=domain_name)
     cookies = []
@@ -30,6 +56,71 @@ def load_cookies(domain_name: str):
     return cookies
 
 
+def normalize(line: str) -> str:
+    return " ".join(line.strip().lower().split())
+
+
+def is_stop_line(line: str) -> bool:
+    lowered = normalize(line)
+    return any(marker in lowered for marker in STOP_MARKERS)
+
+
+def looks_like_news_meta(line: str) -> bool:
+    lowered = normalize(line)
+    return any(marker in lowered for marker in NEWS_META_MARKERS)
+
+
+def parse_ranked_trends(lines: list[str], limit: int):
+    trends = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if not line.isdigit():
+            i += 1
+            continue
+        rank = int(line)
+        if rank <= 0 or rank > 50 or i + 3 >= len(lines):
+            i += 1
+            continue
+        category = lines[i + 2]
+        title = lines[i + 3]
+        if any(not text or is_stop_line(text) for text in [category, title]):
+            i += 1
+            continue
+        detail = ""
+        if i + 4 < len(lines):
+            maybe_detail = lines[i + 4]
+            if "Trending with" in maybe_detail or "posts" in maybe_detail or "帖子" in maybe_detail:
+                detail = maybe_detail
+        trends.append(
+            {
+                "rank": rank,
+                "category": category,
+                "title": title,
+                "detail": detail,
+            }
+        )
+        i += 4
+        if len(trends) >= limit:
+            break
+    return trends
+
+
+def parse_news_pairs(lines: list[str], limit: int):
+    news = []
+    i = 0
+    max_items = max(2, min(5, limit // 2 or 2))
+    while i + 1 < len(lines) and len(news) < max_items:
+        line = lines[i]
+        meta = lines[i + 1]
+        if not is_stop_line(line) and looks_like_news_meta(meta):
+            news.append({"headline": line, "meta": meta})
+            i += 2
+            continue
+        i += 1
+    return news
+
+
 def parse_body_text(body_text: str, limit: int):
     lines = [line.strip() for line in body_text.splitlines() if line.strip()]
     trends = []
@@ -40,17 +131,18 @@ def parse_body_text(body_text: str, limit: int):
     i = 0
     while i < len(lines):
         line = lines[i]
-        if line == "Global Trending":
+        lowered = normalize(line)
+        if lowered in TREND_MARKERS:
             in_trends = True
             in_news = False
             i += 1
             continue
-        if line == "Today’s News":
+        if lowered in NEWS_MARKERS:
             in_trends = False
             in_news = True
             i += 1
             continue
-        if line == "Who to follow":
+        if is_stop_line(line):
             break
 
         if in_trends and line.isdigit() and i + 3 < len(lines):
@@ -80,6 +172,11 @@ def parse_body_text(body_text: str, limit: int):
                 continue
 
         i += 1
+
+    if not trends:
+        trends = parse_ranked_trends(lines, limit)
+    if not news:
+        news = parse_news_pairs(lines, limit)
 
     return trends[:limit], news[: max(2, min(5, limit // 2 or 2))]
 
