@@ -3,9 +3,15 @@
   "slug": "flights-search-plus",
   "displayName": "flights",
   "latest": {
-    "version": "1.1.0",
-    "publishedAt": 1772177004027,
-    "commit": "https://github.com/openclaw/skills/commit/0a16a12311c984703d27caaa1c78bc1799fecfb8"
+    "version": "1.1.1",
+    "publishedAt": 1772592926776,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.1.0",
+      "publishedAt": 1772177004027,
+      "commit": "https://github.com/openclaw/skills/commit/0a16a12311c984703d27caaa1c78bc1799fecfb8"
+    }
+  ]
 }
