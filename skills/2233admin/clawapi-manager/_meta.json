@@ -1,0 +1,11 @@
+{
+  "owner": "2233admin",
+  "slug": "clawapi-manager",
+  "displayName": "ClawAPI Manager",
+  "latest": {
+    "version": "1.1.2",
+    "publishedAt": 1772485179721,
+    "commit": null
+  },
+  "history": []
+}
