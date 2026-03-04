@@ -3,11 +3,16 @@
   "slug": "weather-nws",
   "displayName": "Weather NWS",
   "latest": {
-    "version": "1.0.1",
-    "publishedAt": 1772164175702,
-    "commit": "https://github.com/openclaw/skills/commit/048b7810dc813ab6620a14fee58819a3469039f9"
+    "version": "1.0.3",
+    "publishedAt": 1772549722823,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1772164175702,
+      "commit": "https://github.com/openclaw/skills/commit/048b7810dc813ab6620a14fee58819a3469039f9"
+    },
     {
       "version": "0.1.0",
       "publishedAt": 1771740831766,
