@@ -32,15 +32,24 @@ Codeflow 用来运行你的 coding-agent CLI，并把会话过程结构化转发
 
 在本目录下执行：
 
-```basheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+```bash
 # Codex CLI（结构化 JSON）
 bash scripts/codeflow run -w ~/projects/myapp -- codex exec --json --full-auto 'fix tests'
 
+# 如果 prompt 需要多行、或包含 shell 元字符（例如反引号 backticks），建议走 stdin：
+bash scripts/codeflow run -w ~/projects/myapp -- codex exec --json --full-auto - <<'PROMPT'
+fix tests
+PROMPT
+
 # Claude Code（结构化 JSON stream）
-bash scripts/codeflow run -w ~/projects/myapp -- claude -p --output-format stream-json --verbose 'your task'
+bash scripts/codeflow run -w ~/projects/myapp -- claude -p --output-format stream-json --verbose <<'PROMPT'
+your task
+PROMPT
 ```
 
 如果是以 skill 形式安装，把 `bash scripts/codeflow` 换成 `bash {baseDir}/scripts/codeflow`。
+
+提示：在 OpenClaw 会话里，Codeflow 默认对 Codex/Claude 的 headless（`-p`）模式启用 stdin 提示词（prompt），用来避免 shell 转义/反引号命令替换这类坑；如果确实需要旧的 argv prompt，设置 `CODEFLOW_PROMPT_MODE=argv`（或加 `--prompt-argv`）。
 
 ## CLI
 

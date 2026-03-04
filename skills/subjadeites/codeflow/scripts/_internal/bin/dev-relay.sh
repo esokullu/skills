@@ -2,8 +2,8 @@
 # dev-relay.sh — Stream coding agent output to Discord #dev-session
 #
 # Usage: ./dev-relay.sh [options] -- <command>
-#   ./dev-relay.sh -w ~/projects/foo -- claude -p --dangerously-skip-permissions --output-format stream-json --verbose 'build a REST API'
-#   ./dev-relay.sh -w ~/project -- codex exec --full-auto 'fix tests'
+#   ./dev-relay.sh -w ~/projects/foo -- claude -p --dangerously-skip-permissions --output-format stream-json --verbose < prompt.txt
+#   ./dev-relay.sh -w ~/project -- codex exec --full-auto - < prompt.txt
 #
 # Options:
 #   -w <dir>        Working directory (default: current dir)
@@ -46,6 +46,7 @@ TG_CHAT_ID=""
 TG_THREAD_ID=""
 CODEX_SESSION_POLICY="${CODEFLOW_CODEX_SESSION_MODE:-auto}"   # auto|new|reuse
 CODEX_SESSION_MAP="${CODEFLOW_CODEX_SESSION_MAP:-/tmp/dev-relay-codex-sessions.json}"
+PROMPT_MODE="${CODEFLOW_PROMPT_MODE:-auto}"                  # auto|argv|stdin (stdin = prompt via stdin; reject argv prompt for supported agents)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 PY_DIR="$(cd "$SCRIPT_DIR/../py" && pwd)"
@@ -85,6 +86,8 @@ while [[ $# -gt 0 ]]; do
     --tg-thread)  TG_THREAD_ID="$2"; shift 2 ;;
     --new-session)   CODEX_SESSION_POLICY="new"; shift ;;
     --reuse-session) CODEX_SESSION_POLICY="reuse"; shift ;;
+    --prompt-stdin) PROMPT_MODE="stdin"; shift ;;
+    --prompt-argv)  PROMPT_MODE="argv"; shift ;;
     --activate)   GUARD_ACTIVATE=true; shift ;;
     --deactivate) GUARD_DEACTIVATE=true; shift ;;
     --guard-status) GUARD_STATUS=true; shift ;;
@@ -110,6 +113,108 @@ shift $((OPTIND - 1))
 
 COMMAND_ARGS=("$@")
 COMMAND="$*"
+
+prompt_mode_effective() {
+  local v
+  v="$(printf '%s' "${PROMPT_MODE:-auto}" | tr '[:upper:]' '[:lower:]')"
+  case "$v" in
+    stdin|argv) printf '%s' "$v"; return 0 ;;
+    auto|"")
+      if [ -n "${OPENCLAW_SESSION_KEY:-${OPENCLAW_SESSION:-}}" ]; then
+        printf '%s' "stdin"
+      else
+        printf '%s' "argv"
+      fi
+      return 0
+      ;;
+    *)
+      echo "❌ Error: invalid CODEFLOW_PROMPT_MODE='$PROMPT_MODE' (expected auto|argv|stdin)" >&2
+      exit 2
+      ;;
+  esac
+}
+
+claude_has_print_flag() {
+  local a
+  for a in "${COMMAND_ARGS[@]:1}"; do
+    [ "$a" = "-p" ] && return 0
+  done
+  return 1
+}
+
+claude_enforce_no_positional_query() {
+  # Enforce: no positional "query" argument; prompt must arrive via stdin.
+  # This parser is intentionally conservative; if you need option values, prefer --flag=value.
+  local i a
+  for ((i=1; i<${#COMMAND_ARGS[@]}; i++)); do
+    a="${COMMAND_ARGS[$i]}"
+    case "$a" in
+      --) # everything after -- is positional
+        [ $((i + 1)) -lt ${#COMMAND_ARGS[@]} ] && return 1
+        return 0
+        ;;
+      --*=*) continue ;; # --flag=value
+
+      # Options that take a value
+      -r|--resume|--cwd|--model|--max-turns|--permission-mode|--output-format|--input-format|--allowedTools|--disallowedTools|--system-prompt|--append-system-prompt)
+        i=$((i + 1))
+        continue
+        ;;
+    esac
+
+    # Flags (no value) or unknown options: ok
+    [[ "$a" == -* ]] && continue
+
+    # Positional argument => treated as a query (not allowed in stdin mode)
+    return 1
+  done
+  return 0
+}
+
+enforce_prompt_stdin_policy() {
+  local mode
+  mode="$(prompt_mode_effective)"
+  [ "$mode" != "stdin" ] && return 0
+
+  # Only enforce for the supported, non-interactive modes.
+  local is_codex_exec=false
+  local is_claude_print=false
+  if [ "${COMMAND_ARGS[0]:-}" = "codex" ] && [ "${COMMAND_ARGS[1]:-}" = "exec" ]; then
+    is_codex_exec=true
+  fi
+  if [ "${COMMAND_ARGS[0]:-}" = "claude" ] && claude_has_print_flag; then
+    is_claude_print=true
+  fi
+  [ "$is_codex_exec" = false ] && [ "$is_claude_print" = false ] && return 0
+
+  # Avoid "looks hung": require prompt to be redirected/piped (non-TTY stdin).
+  if [ -t 0 ]; then
+    echo "❌ Error: prompt stdin mode is enabled, but stdin is a TTY." >&2
+    echo "  Use a quoted heredoc or redirect a file into stdin." >&2
+    exit 2
+  fi
+
+  if [ "$is_codex_exec" = true ]; then
+    # For Codex, require explicit '-' so the intent is unambiguous and shell-escape-safe.
+    local last
+    last="${COMMAND_ARGS[$((${#COMMAND_ARGS[@]} - 1))]}"
+    if [ "$last" != "-" ]; then
+      echo "❌ Error: prompt stdin mode requires Codex prompt to be '-' (read from stdin)." >&2
+      echo "  Example: bash .../codeflow run ... -- codex exec --json --full-auto - <<'PROMPT' ... PROMPT" >&2
+      exit 2
+    fi
+  fi
+
+  if [ "$is_claude_print" = true ]; then
+    if ! claude_enforce_no_positional_query; then
+      echo "❌ Error: prompt stdin mode requires Claude Code prompt via stdin (no positional query argument)." >&2
+      echo "  Example: bash .../codeflow run ... -- claude -p --output-format stream-json --verbose < prompt.txt" >&2
+      exit 2
+    fi
+  fi
+}
+
+enforce_prompt_stdin_policy
 WORKDIR_ABS=$(python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "$WORKDIR" 2>/dev/null || echo "$WORKDIR")
 
 get_codex_session_for_workdir() {

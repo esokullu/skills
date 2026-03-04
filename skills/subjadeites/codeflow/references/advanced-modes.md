@@ -110,6 +110,12 @@ bash {baseDir}/scripts/codeflow run -w ~/projects/myapp -- codex exec --json --f
 
 Notes:
 - Resume/replay uses `stream.jsonl`. Delivery stats are written to `delivery-summary.json`. No additional log files are written by the relay.
+- If your prompt is multi-line or contains shell metacharacters (e.g. backticks), prefer stdin:
+  ```bash
+  bash {baseDir}/scripts/codeflow run -w ~/projects/myapp -- codex exec --json --full-auto - <<'PROMPT'
+  Fix test failures
+  PROMPT
+  ```
 
 ## Guard Audit Privacy
 

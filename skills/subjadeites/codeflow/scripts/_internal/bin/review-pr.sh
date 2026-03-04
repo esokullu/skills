@@ -162,12 +162,15 @@ fi
 # Build agent command
 REVIEW_OUTPUT="/tmp/pr-review-${PR_NUM}.md"
 AGENT_ARGS=()
+NEED_PROMPT_STDIN=false
 case "$AGENT" in
   claude*)
-    AGENT_ARGS=(claude -p --dangerously-skip-permissions --output-format stream-json --verbose "$REVIEW_PROMPT")
+    AGENT_ARGS=(claude -p --dangerously-skip-permissions --output-format stream-json --verbose)
+    NEED_PROMPT_STDIN=true
     ;;
   codex*)
-    AGENT_ARGS=(codex exec --json --full-auto "$REVIEW_PROMPT")
+    AGENT_ARGS=(codex exec --json --full-auto -)
+    NEED_PROMPT_STDIN=true
     ;;
   *)
     read -r -a AGENT_WORDS <<< "$AGENT"
@@ -187,7 +190,14 @@ RELAY_ARGS=(-w "$WORKDIR" -t "$TIMEOUT" -P "$PLATFORM" -n "${AGENT} Review")
 [ -n "$TG_THREAD_ID" ] && RELAY_ARGS+=(--tg-thread "$TG_THREAD_ID")
 
 # Run through dev-relay.sh
-bash "$SCRIPT_DIR/dev-relay.sh" "${RELAY_ARGS[@]}" -- "${AGENT_ARGS[@]}"
+if [ "$NEED_PROMPT_STDIN" = true ]; then
+  PROMPT_FILE="$(mktemp "/tmp/codeflow-prompt.pr-${PR_NUM}.XXXXXX")"
+  printf '%s\n' "$REVIEW_PROMPT" > "$PROMPT_FILE"
+  bash "$SCRIPT_DIR/dev-relay.sh" "${RELAY_ARGS[@]}" -- "${AGENT_ARGS[@]}" < "$PROMPT_FILE"
+  rm -f "$PROMPT_FILE" 2>/dev/null || true
+else
+  bash "$SCRIPT_DIR/dev-relay.sh" "${RELAY_ARGS[@]}" -- "${AGENT_ARGS[@]}"
+fi
 
 # Post review as gh pr comment if requested
 if [ "$POST_COMMENT" = true ] && [ -f "$REVIEW_OUTPUT" ]; then

@@ -36,11 +36,20 @@ From this directory:
 # Codex CLI (structured JSON)
 bash scripts/codeflow run -w ~/projects/myapp -- codex exec --json --full-auto 'fix tests'
 
+# If your prompt is multi-line or contains shell metacharacters (e.g. backticks), use stdin:
+bash scripts/codeflow run -w ~/projects/myapp -- codex exec --json --full-auto - <<'PROMPT'
+fix tests
+PROMPT
+
 # Claude Code (structured JSON stream)
-bash scripts/codeflow run -w ~/projects/myapp -- claude -p --output-format stream-json --verbose 'your task'
+bash scripts/codeflow run -w ~/projects/myapp -- claude -p --output-format stream-json --verbose <<'PROMPT'
+your task
+PROMPT
 ```
 
 If you installed this as a skill, replace `bash scripts/codeflow` with `bash {baseDir}/scripts/codeflow`.
+
+Tip: in OpenClaw sessions, Codeflow defaults to stdin prompts for Codex/Claude print mode (to avoid shell escaping issues). Override with `CODEFLOW_PROMPT_MODE=argv` (or pass `--prompt-argv`) if you need legacy argv prompts.
 
 ## CLI
 

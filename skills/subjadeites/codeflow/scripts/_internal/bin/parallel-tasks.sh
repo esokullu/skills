@@ -231,17 +231,21 @@ for i in $(seq 0 $((TASK_COUNT - 1))); do
 
   # Build agent command
   COMPLETION_MSG="When completely finished, run: openclaw system event --text 'Done: ${TASK_NAME} - task complete' --mode now"
+  RUN_PROMPT="${TASK_PROMPT}. ${COMPLETION_MSG}"
   AGENT_ARGS=()
+  NEED_PROMPT_STDIN=false
   case "$AGENT" in
     claude*)
-      AGENT_ARGS=(claude -p --dangerously-skip-permissions --output-format stream-json --verbose "${TASK_PROMPT}. ${COMPLETION_MSG}")
+      AGENT_ARGS=(claude -p --dangerously-skip-permissions --output-format stream-json --verbose)
+      NEED_PROMPT_STDIN=true
       ;;
     codex*)
-      AGENT_ARGS=(codex exec --json --full-auto "${TASK_PROMPT}. ${COMPLETION_MSG}")
+      AGENT_ARGS=(codex exec --json --full-auto -)
+      NEED_PROMPT_STDIN=true
       ;;
     *)
       read -r -a AGENT_WORDS <<< "$AGENT"
-      AGENT_ARGS=("${AGENT_WORDS[@]}" "$TASK_PROMPT")
+      AGENT_ARGS=("${AGENT_WORDS[@]}" "$RUN_PROMPT")
       ;;
   esac
 
@@ -258,8 +262,16 @@ for i in $(seq 0 $((TASK_COUNT - 1))); do
   echo "  🚀 Task $((i + 1))/$TASK_COUNT: $TASK_NAME"
 
   # Launch in background
-  bash "$SCRIPT_DIR/dev-relay.sh" "${RELAY_ARGS[@]}" -- "${AGENT_ARGS[@]}" &
-  PIDS+=($!)
+  if [ "$NEED_PROMPT_STDIN" = true ]; then
+    PROMPT_FILE="$(mktemp "/tmp/codeflow-prompt.${TASK_NAME}.XXXXXX")"
+    printf '%s\n' "$RUN_PROMPT" > "$PROMPT_FILE"
+    bash "$SCRIPT_DIR/dev-relay.sh" "${RELAY_ARGS[@]}" -- "${AGENT_ARGS[@]}" < "$PROMPT_FILE" &
+    PIDS+=($!)
+    rm -f "$PROMPT_FILE" 2>/dev/null || true
+  else
+    bash "$SCRIPT_DIR/dev-relay.sh" "${RELAY_ARGS[@]}" -- "${AGENT_ARGS[@]}" &
+    PIDS+=($!)
+  fi
 
   # Small stagger to avoid webhook collision on thread creation
   sleep 2
