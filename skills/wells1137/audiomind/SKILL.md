@@ -1,6 +1,6 @@
 ---
 name: audiomind
-version: 3.1.0
+version: 3.3.0
 description: >
   Turn any idea into a finished podcast in one command. AudioMind handles ElevenLabs voice narration (29+ voices), AI background music, and server-side audio mixing — all through a secure backend. Free tier included, no setup required.
 metadata:
@@ -8,6 +8,7 @@ metadata:
     optional_env:
       - AUDIOMIND_BACKEND_URL
       - AUDIOMIND_API_KEY
+      - FAL_KEY
     network:
       - audiomind-backend-nine.vercel.app
     operator: wells1137
@@ -104,6 +105,8 @@ All API keys (ElevenLabs) are stored server-side. The skill file contains zero c
 ---
 
 ### Changelog
+
+**v3.3.0** — Removed local `tools/start_server.sh` entirely (not needed in v3 architecture). Declared `FAL_KEY` as optional env. Resolves all OpenClaw metadata inconsistency warnings.
 
 **v3.1.0** — Zero-config install. Public shared backend is now the default. No `AUDIOMIND_BACKEND_URL` setup required for free tier users.
 
