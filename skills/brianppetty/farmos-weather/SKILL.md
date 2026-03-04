@@ -89,6 +89,26 @@ When answering weather questions, think about what else on the farm is affected:
 
 Query farmos-tasks and farmos-observations alongside weather for any field operation question. You don't need to cross-reference on every simple "what's the temperature?" question — use judgment. Cross-reference when the weather materially affects the plan.
 
+## Units — Already Imperial, Display Directly
+
+The weather API returns all values in US imperial units. **Display them as-is — no conversion needed.**
+
+| API field | Unit | Example display |
+|-----------|------|-----------------|
+| `temperature_max` / `temperature_min` | °F | "high of 55°F" |
+| `precipitation_sum` | inches | "about a quarter inch of rain" |
+| `wind_speed_10m_max` / `wind_gusts_10m_max` | mph | "winds up to 21 mph" |
+
+**Do not convert, do not relabel.** `0.25` means 0.25 inches. `55` means 55°F. `16` means 16 mph.
+
+## Date Handling — Anchor to Today
+
+The API returns dates as `YYYY-MM-DD` strings starting from today. The first entry is **today**, not tomorrow.
+
+- Use your system date to label each day correctly: "Today (Feb 28)", "Tomorrow (Mar 1)", "Wednesday (Mar 2)"
+- Do not assume the first forecast entry is tomorrow — it is today
+- If you're unsure of today's date, say so rather than guess
+
 ## Usage Notes
 
 - Farm is located in central Indiana. If specific field weather isn't available, general local weather is fine.
