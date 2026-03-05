@@ -1,0 +1,11 @@
+{
+  "owner": "googleworkspace-bot",
+  "slug": "gws-events-renew",
+  "displayName": "Gws Events Renew",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1772670421343,
+    "commit": null
+  },
+  "history": []
+}
