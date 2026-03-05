@@ -1,0 +1,11 @@
+{
+  "owner": "gora050",
+  "slug": "zendesk-integration",
+  "displayName": "Zendesk",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1772640144550,
+    "commit": null
+  },
+  "history": []
+}
