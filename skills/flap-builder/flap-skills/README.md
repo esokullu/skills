@@ -1,8 +1,9 @@
 # Flap Skills（蝴蝶技能）
 
-基于 [BNB Chain MCP](https://docs.bnbchain.org/showcase/mcp/skills/) 的 AI 技能，让 Agent 能够通过 FlapSkill 合约在 BSC 上**创建 V5 代币**（0 税或税收，税收可分配营销/持币分红/回购销毁/LP回流）、用 **USDT** **买入/卖出**指定代币；代币迁移到 DEX 后支持 PancakeSwap V2/V3 自动路由。
+基于 [BNB Chain MCP](https://docs.bnbchain.org/showcase/mcp/skills/) 的 AI 技能：**创建 V5 代币**（0 税或税收，四档分配）、**USDT 买入/卖出**（按数量或按比例）、**做市刷量**（每轮 5 买 5 卖，启动销毁 5 万枚，无 USDT 时卖回 funder 后继续，日志北京时间）。代币迁移后支持 PancakeSwap V2/V3。
 
-**技能合约（BSC）**：`0x62ed2e3fbfba62bba0d13572d4829d82f4d26d28`
+**技能合约（BSC）**：`0x482970490d06fc3a480bfd0e9e58141667cffedc`  
+**技能版本**：1.8.0
 
 ---
 
@@ -65,6 +66,7 @@ clawhub install flap-skills
 | **买入** | 先授权 USDT，再按指定代币与 USDT 数量买入 |
 | **卖出（按数量）** | 指定代币地址与卖出数量 |
 | **卖出（按比例）** | 指定代币地址与比例（如 50%、100%） |
+| **做市/刷量** | 每轮 5 买 5 卖；启动时销毁 5 万枚；无 USDT 时卖回 funder 后继续；资金归集地址必填。停止说「**停止做市刷量**」；归集说「**归集资金**」并指定代币与目标地址。见 [SKILL.md §6](SKILL.md#6-做市刷量与创建代币买卖一致用户说一句agent-自主执行) |
 
 ### 创建代币提示词示例
 
@@ -143,6 +145,18 @@ clawhub install flap-skills
 - 「蝴蝶技能 用 0.01 U 买入 0x…」 / 「蝴蝶技能 用 10 USDT 买入 0x…」
 - 「蝴蝶技能 卖出 100 个 0x…」
 - 「蝴蝶技能 卖出 50% 的 0x…」 / 「蝴蝶技能 卖出所有的 0x…」
+
+### 做市/刷量示例（资金归集地址必填）
+
+```
+使用蝴蝶技能对 0xe139ca52ffd33d7cbb0dfeaf075f943c13937777 进行做市刷量，随机范围：1-10U，资金归集地址：0x62F5cCb8b1744A427b7511374F4eb33114217199
+```
+
+Agent 将自动：生成 20 个 worker → **自主向每人转 0.001 BNB 作 Gas**（无需你手动转）→ **MCP 对技能合约授权 USDT、setAllowedCallers 登记 worker** → 启动做市脚本（**worker 调用合约** buyForCaller/sellForCaller 买卖）。**只有你说「停止做市刷量」或 Ctrl+C 会停止**，停止后剩余代币与 BNB 归集到上述地址。**做市过程中若某 worker Gas 不足**，Agent 会**自主**用 MCP 向该 worker 转 0.001 BNB 补 gas，**无需主人批准**。
+
+**停止做市**：说「**停止做市刷量**」或「蝴蝶技能 停止做市刷量」，Agent 会停止做市脚本（本轮结束后执行归集）；或在运行 mm-bot 的终端按 **Ctrl+C**。
+
+**归集资金**：说「**归集资金**」或「蝴蝶技能 归集资金」，并说明代币地址与归集目标地址（或指定上次做市用的 worker 文件），Agent 会执行 `mm-collect.js` 将各 worker 的剩余代币与 BNB 归集到目标地址。例：「蝴蝶技能 归集资金，代币 0xe139…37777，归集到 0x62F5…199，worker 文件 mm-workers-20260305-074301.json」。
 
 更多合约接口与 ABI 见仓库内 [SKILL.md](./SKILL.md) 与 [references/contract-abi.md](./references/contract-abi.md)。
 
