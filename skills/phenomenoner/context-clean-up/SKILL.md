@@ -1,7 +1,7 @@
 ---
 name: context-clean-up
 slug: context-clean-up
-version: 1.0.5
+version: 1.0.6
 license: MIT
 description: |
   Use when: prompt context is bloating (slow replies, rising cost, noisy transcripts) and you want a ranked offender list + reversible plan.
@@ -9,8 +9,6 @@ description: |
   Output: an audit-only report (top offenders + 3-8 lowest-risk fixes + rollback notes). No changes are applied automatically.
 disable-model-invocation: true
 allowed-tools:
-  - read
-  - exec
   - sessions_list
   - sessions_history
   - session_status
@@ -25,11 +23,19 @@ This skill is a **runbook** to identify what is bloating your prompt context and
 - It will not delete data, prune sessions, patch config, or modify cron jobs.
 - If you ask for changes, it will propose an exact patch + rollback plan and wait for explicit approval.
 
+## Safety model (why this should not be flagged as RCE)
+
+- No `exec` tool usage (no arbitrary shell command execution).
+- No `read` tool usage (no arbitrary file reads).
+- If you want a file-level audit, you run the bundled script manually and paste the JSON (optional).
+
 ## Quick start
 
 - `/context-clean-up` -> audit + actionable plan (no changes)
 
-If you can run the bundled audit script, you can also generate a JSON report:
+Optional (manual, human-run): generate a JSON report with the bundled audit script.
+
+This is intentionally **not** executed by the agent (no `exec` tool), so it won't get flagged as RCE-capable.
 
 ```text
 python3 scripts/context_cleanup_audit.py --out context-cleanup-audit.json
