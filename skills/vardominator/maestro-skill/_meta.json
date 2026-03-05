@@ -3,11 +3,16 @@
   "slug": "maestro-skill",
   "displayName": "Maestro Bitcoin",
   "latest": {
-    "version": "0.1.7",
-    "publishedAt": 1771627646521,
-    "commit": "https://github.com/openclaw/skills/commit/c0b840a74fa16d5df2e57eeab7773e43e5a147d5"
+    "version": "0.2.1",
+    "publishedAt": 1772575604051,
+    "commit": null
   },
   "history": [
+    {
+      "version": "0.1.7",
+      "publishedAt": 1771627646521,
+      "commit": "https://github.com/openclaw/skills/commit/c0b840a74fa16d5df2e57eeab7773e43e5a147d5"
+    },
     {
       "version": "0.1.6",
       "publishedAt": 1771220422880,
