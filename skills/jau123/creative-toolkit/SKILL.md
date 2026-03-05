@@ -1,9 +1,9 @@
 ---
-name: creative-toolkit
-description: Generate images from text with multi-provider routing — supports Nanobanana Pro, GPT Image, Seedream, and local ComfyUI workflows. Includes 1,300+ curated prompts and style-aware prompt enhancement. Use when users want to create images, design assets, enhance prompts, or manage AI art workflows.
-version: 1.0.4
+name: "AI Image Generator & Editor — Nanobanana, GPT Image, ComfyUI"
+description: Generate images from text with multi-provider routing — supports Nanobanana 2, Seedream 5.0, GPT Image, and local ComfyUI workflows. Includes 1,300+ curated prompts and style-aware prompt enhancement. Use when users want to create images, design assets, enhance prompts, or manage AI art workflows.
+version: 1.0.10
 homepage: https://github.com/jau123/MeiGen-AI-Design-MCP
-metadata: {"clawdbot":{"emoji":"🎨","requires":{"bins":["mcporter"],"env":["MEIGEN_API_TOKEN"]},"primaryEnv":"MEIGEN_API_TOKEN"}}
+metadata: {"clawdbot":{"emoji":"🎨","requires":{"bins":["mcporter","npx","node"],"env":["MEIGEN_API_TOKEN"]}}}
 ---
 
 # Creative Toolkit
@@ -19,7 +19,7 @@ Add the MCP server to your mcporter config (`~/.config/mcporter/config.json`):
   "mcpServers": {
     "creative-toolkit": {
       "command": "npx",
-      "args": ["-y", "meigen@latest"],
+      "args": ["-y", "meigen@1.2.4"],
       "env": {
         "MEIGEN_API_TOKEN": "${MEIGEN_API_TOKEN}"
       }
@@ -43,7 +43,7 @@ mcporter call creative-toolkit.generate_image prompt="a minimalist perfume bottl
 Or try it without any config (ad-hoc stdio mode):
 
 ```bash
-mcporter call --stdio "npx -y meigen@latest" generate_image prompt="a ceramic vase with morning light"
+mcporter call --stdio "npx -y meigen@1.2.4" generate_image prompt="a ceramic vase with morning light"
 ```
 
 No API key? Free tools still work:
@@ -116,7 +116,7 @@ Multiple providers can be configured simultaneously. Auto-detection priority: Me
 | Tool | What it does |
 |------|-------------|
 | `generate_image` | Generate an image from a text prompt. Automatically routes to the best available provider. Supports aspect ratio, seed, and reference images. |
-| `upload_reference_image` | Compress and upload a local image (max 2MB, 2048px) for use as a style reference in generation. Returns a public URL. |
+| `upload_reference_image` | Compress a local image (max 2MB, 2048px) so it can be used as a style reference in `generate_image`. Requires explicit user invocation. |
 | `comfyui_workflow` | List, view, import, modify, and delete ComfyUI workflow templates. Modify parameters like steps, CFG scale, sampler, and checkpoint without editing JSON. |
 
 ## Usage Patterns
@@ -141,19 +141,17 @@ For brief ideas, enhance first for much better results:
    → Generates with the enhanced prompt
 ```
 
-### Reference image workflow
+### Style reference workflow
 
-Use an existing image to guide style and composition:
+Use an existing image to guide the visual style of generation:
 
 ```
 1. upload_reference_image filePath="~/Desktop/my-logo.png"
-   → Returns public URL
+   → Compresses and returns a reference ID
 
-2. generate_image prompt="coffee mug mockup with this logo" referenceImages=["<url>"]
+2. generate_image prompt="coffee mug mockup with this logo" referenceImages=["<id>"]
    → Generates using the reference for style guidance
 ```
-
-Reference images work across all providers.
 
 ### Gallery exploration
 
@@ -163,7 +161,7 @@ Semantic search understands intent — "dreamy portrait with soft light" finds r
 1. search_gallery query="dreamy portrait with soft light"
    → Finds semantically similar prompts with thumbnails
 
-2. search_gallery category="Product"
+2. search_gallery category="Product & Brand"
    → Browse by category from 1,300+ curated prompts
 
 3. get_inspiration id="<entry_id>"
@@ -190,12 +188,25 @@ Semantic search understands intent — "dreamy portrait with soft light" finds r
 
 | | MeiGen Platform | OpenAI-Compatible | ComfyUI (Local) |
 |---|---|---|---|
-| **Models** | Nanobanana Pro, GPT Image 1.5, Seedream 4.5, etc. | Any model at the endpoint | Any checkpoint on your machine |
+| **Models** | Nanobanana 2, Seedream 5.0, GPT Image 1.5, etc. | Any model at the endpoint | Any checkpoint on your machine |
 | **Reference images** | Native support | gpt-image-1.5 only | Requires LoadImage node |
 | **Concurrency** | Up to 4 parallel | Up to 4 parallel | 1 at a time (GPU constraint) |
 | **Latency** | 10-30s typical | Varies by provider | Depends on hardware |
 | **Cost** | Token-based credits | Provider billing | Free (your hardware) |
 | **Offline** | No | No | Yes |
+
+## MeiGen Model Pricing
+
+| Model | Credits | 4K | Best For |
+|-------|---------|-----|----------|
+| Nanobanana 2 (default) | 5 | Yes | General purpose, high quality |
+| Seedream 5.0 Lite | 5 | Yes | Fast, stylized imagery |
+| GPT Image 1.5 | 2 | No | Budget-friendly |
+| Nanobanana Pro | 10 | Yes | Premium quality |
+| Seedream 4.5 | 5 | Yes | Stylized, wide ratio support |
+| Midjourney Niji 7 | 15 | No | Anime and illustration |
+
+When no model is specified, the server defaults to Nanobanana 2.
 
 ## Prompt Enhancement Styles
 
@@ -209,9 +220,9 @@ Semantic search understands intent — "dreamy portrait with soft light" finds r
 
 ## Security & Privacy
 
-**Remote package execution**: This skill runs as an MCP server via `npx meigen@latest`. The package is published on [npmjs.com](https://www.npmjs.com/package/meigen) under the `meigen` name with full source code available at [GitHub](https://github.com/jau123/MeiGen-AI-Design-MCP). No code is obfuscated or minified beyond standard TypeScript compilation.
+**Pinned package**: This skill runs as an MCP server via `npx meigen@1.2.4` (pinned version, not floating). The package is published on [npmjs.com](https://www.npmjs.com/package/meigen) with full source code at [GitHub](https://github.com/jau123/MeiGen-AI-Design-MCP). No code is obfuscated or minified beyond standard TypeScript compilation.
 
-**Reference image upload**: The `upload_reference_image` tool compresses local images (max 2MB, 2048px) and uploads them to a CDN for use as generation references. This is always user-initiated — the tool never accesses or uploads files without explicit invocation. Uploaded images are used solely as style references for image generation.
+**Reference images**: The `upload_reference_image` tool compresses a user-specified image (max 2MB, 2048px) for use as a style reference in generation. This is always user-initiated and requires explicit invocation — no files are accessed automatically. The compressed image is sent only to the user's configured image generation provider, the same way any image generation API accepts input images.
 
 **API tokens**: `MEIGEN_API_TOKEN` is stored locally in environment variables or `~/.config/meigen/config.json` with `chmod 600` permissions. Tokens are only sent to the configured provider's API endpoint and never logged or transmitted elsewhere.
 
@@ -232,4 +243,4 @@ Semantic search understands intent — "dreamy portrait with soft light" finds r
 → Run `list_models` to see available models for your configured providers.
 
 **Reference image rejected**
-→ Images must be public URLs (not local paths). Use `upload_reference_image` to convert local files to URLs first.
+→ Reference images require accessible URLs. Use `upload_reference_image` to prepare local files first.
