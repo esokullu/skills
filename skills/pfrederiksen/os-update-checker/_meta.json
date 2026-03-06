@@ -1,0 +1,11 @@
+{
+  "owner": "pfrederiksen",
+  "slug": "os-update-checker",
+  "displayName": "OS Update Checker",
+  "latest": {
+    "version": "1.1.0",
+    "publishedAt": 1772817251500,
+    "commit": null
+  },
+  "history": []
+}
