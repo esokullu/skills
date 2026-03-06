@@ -14,24 +14,26 @@ else
   exit 1
 fi
 
-# Test report endpoint
-echo -n "2. Report endpoint: "
-RESULT=$(curl -sf -X POST "$API_URL/report" \
+# Test report endpoint contract without creating fake agents
+echo -n "2. Report endpoint contract: "
+HTTP_CODE=$(curl -s -o /tmp/roc-test-report.json -w "%{http_code}" -X POST "$API_URL/report" \
   -H "Content-Type: application/json" \
-  -d '{"gateway_id":"test-probe","agent_name":"probe","country":"XX","tokens_delta":0,"model":"test"}' 2>&1) || RESULT="FAIL"
-if echo "$RESULT" | grep -q "success"; then
+  -d '{}')
+if [ "$HTTP_CODE" = "400" ] && grep -q "Missing required fields" /tmp/roc-test-report.json; then
   echo "OK"
 else
-  echo "FAIL - $RESULT"
+  echo "FAIL - unexpected response (HTTP $HTTP_CODE)"
+  cat /tmp/roc-test-report.json
 fi
 
-# Test rank lookup
-echo -n "3. Rank lookup: "
-RANK=$(curl -sf "$API_URL/rank?agent=probe" 2>&1) || RANK="FAIL"
-if echo "$RANK" | grep -q "rank"; then
+# Test rank endpoint shape
+echo -n "3. Rank endpoint reachable: "
+RANK_HTTP=$(curl -s -o /tmp/roc-test-rank.json -w "%{http_code}" "$API_URL/rank?agent=non-existent-agent")
+if [ "$RANK_HTTP" = "404" ] || [ "$RANK_HTTP" = "400" ]; then
   echo "OK"
 else
-  echo "FAIL (expected if agent not yet reported)"
+  echo "FAIL - unexpected response (HTTP $RANK_HTTP)"
+  cat /tmp/roc-test-rank.json
 fi
 
 # Check hook file
