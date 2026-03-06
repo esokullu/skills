@@ -1,0 +1,11 @@
+{
+  "owner": "gora050",
+  "slug": "openai-integration",
+  "displayName": "Openai",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1772798549534,
+    "commit": null
+  },
+  "history": []
+}
