@@ -3,11 +3,16 @@
   "slug": "jqopenclaw-node-invoker",
   "displayName": "JQOpenClawNode skill",
   "latest": {
-    "version": "1.0.1",
-    "publishedAt": 1772609430625,
-    "commit": "https://github.com/openclaw/skills/commit/7e29051598e79bcc19bf43849b6d100fd96cb4e8"
+    "version": "26.3.5",
+    "publishedAt": 1772690360648,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1772609430625,
+      "commit": "https://github.com/openclaw/skills/commit/7e29051598e79bcc19bf43849b6d100fd96cb4e8"
+    },
     {
       "version": "1.0.0",
       "publishedAt": 1772460858485,

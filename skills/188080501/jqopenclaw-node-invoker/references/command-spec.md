@@ -30,11 +30,11 @@
 
 ## 2. file.read
 
-用途：读取文件内容、按行区间、目录遍历、元信息，或执行 `rg` 搜索。
+用途：读取文件内容、按行区间、目录遍历、元信息、计算文件 MD5，或执行 `rg` 搜索。
 
 `params`：
 - `path`：字符串，必填。
-- `operation`：字符串，可选，默认 `read`。可选值：`read` / `lines` / `list` / `rg` / `stat`。
+- `operation`：字符串，可选，默认 `read`。可选值：`read` / `lines` / `list` / `rg` / `stat` / `md5`。
 - `read` 模式参数：
   - `encoding`：字符串，可选，`utf8`（默认）或 `base64`。
   - `maxBytes`：整数，可选，默认 `1048576`，范围 `[1, 20971520]`。
@@ -58,6 +58,8 @@
   - `literal`：布尔，可选，默认 `false`（固定字符串匹配）。
   - 内部执行超时：默认 `60000ms`，若设置了 `node.invoke.timeoutMs`（含 `0`），实际超时为二者较小值。
 - `stat` 模式参数：
+  - 无额外必填参数。
+- `md5` 模式参数：
   - 无额外必填参数。
 
 示例：
@@ -162,6 +164,24 @@
 }
 ```
 
+示例（md5 模式）：
+
+```json
+{
+  "method": "node.invoke",
+  "params": {
+    "nodeId": "<node-id>",
+    "command": "file.read",
+    "params": {
+      "operation": "md5",
+      "path": "C:/Temp/app.log"
+    },
+    "timeoutMs": 15000,
+    "idempotencyKey": "<uuid>"
+  }
+}
+```
+
 返回重点（payload）：
 - 公共字段：
   - `path`
@@ -219,6 +239,10 @@
   - `owner`（`name`、`id`、`group`、`groupId`）
   - `permissions`（owner/group/other 的 read/write/execute）
   - `timestamps`（`accessTime`、`birthTime`、`modificationTime`、`metadataChangeTime`，各含 `iso8601`、`epochMs`）
+- `md5` 模式字段：
+  - `algorithm`：固定 `md5`
+  - `sizeBytes`
+  - `md5`（32 位小写十六进制摘要）
 
 ## 3. file.write
 
@@ -445,7 +469,7 @@
   - `keyword`：字符串，可选。`query` 的兼容别名（仅在 `query` 为空时生效）。
   - `pid`：数字，可选，范围 `[1, 2147483647]`。作为 PID 精确过滤条件。
   - `caseSensitive`：布尔，可选，默认 `false`。
-  - `limit`：数字，可选，默认 `200`，范围 `[1, 5000]`。
+  - `limit`：数字，可选，默认 `300`，范围 `[1, 5000]`。
   - `includePath`：布尔，可选，默认 `false`。是否返回进程路径，并允许 `query` 匹配路径。
   - `includeArchitecture`：布尔，可选，默认 `false`。是否返回 `isWow64` 字段（Windows）。
 - `search` 额外约束：
@@ -617,10 +641,38 @@
 }
 ```
 
-## 11. 常见错误与处理
+## 11. node.selfUpdate
+
+用途：执行节点自更新。流程为参数校验 ->（可选）当前程序 MD5 比对 -> HTTP 下载 ->（可选）下载包 MD5 比对 -> 写入临时文件 -> 生成并启动更新 bat -> `node.invoke` 回包后延迟退出当前节点。
+
+`params`：
+- `downloadUrl`：字符串，必填。新版本程序完整下载地址（仅支持 `http/https`）。
+- `md5`：字符串，可选。32 位十六进制 MD5；若提供且与当前程序一致，返回无需更新。
+
+返回重点（`payload`）：
+- 无需更新：
+  - `operation=selfUpdate`
+  - `updated=false`
+  - `reason=md5_unchanged`
+  - `currentMd5`
+  - `expectedMd5`
+- 进入更新流程：
+  - `operation=selfUpdate`
+  - `updated=true`
+  - `downloadUrl`
+  - `downloadedMd5`
+  - `expectedMd5`（若调用时提供）
+  - `willExit=true`
+  - `status=exiting_for_self_update`
+
+注意：
+- 下载临时文件使用 UUID 文件名，不带 `.exe` 后缀。
+- 更新 bat 会自动删除临时文件和 bat 本身。
+
+## 12. 常见错误与处理
 
 - `INVALID_PARAMS`
-  - 参数缺失、类型不匹配或超出范围（含 `file.read` / `file.write` / `process.manage` / `process.exec` / `process.which` / `system.notify` / `system.clipboard` / `system.input` 参数校验失败）。
+  - 参数缺失、类型不匹配或超出范围（含 `file.read` / `file.write` / `process.manage` / `process.exec` / `process.which` / `system.notify` / `system.clipboard` / `system.input` / `node.selfUpdate` 参数校验失败）。
   - 修正字段后重试。
 
 - `FILE_READ_FAILED` / `FILE_WRITE_FAILED`
@@ -661,11 +713,15 @@
   - `system.notify` 请求投递失败（如应用实例不可用、UI 线程分发失败）。
 - `SYSTEM_CLIPBOARD_FAILED`
   - `system.clipboard` 执行失败（如应用实例不可用、图形环境缺失、剪贴板访问失败）。
+- `NODE_SELF_UPDATE_FAILED`
+  - `node.selfUpdate` 执行失败（下载失败、HTTP 状态异常、临时文件写入失败、更新脚本启动失败等）。
+- `NODE_SELF_UPDATE_MD5_MISMATCH`
+  - `node.selfUpdate` 下载成功但 MD5 校验不匹配。
 - `command not allowlisted`
   - 网关策略拦截。
-  - 在网关配置 `gateway.nodes.allowCommands` 增加目标命令（如 `file.read`、`file.write`、`process.manage`、`process.exec`、`process.which`、`system.notify`、`system.clipboard`、`system.input`）。
+  - 在网关配置 `gateway.nodes.allowCommands` 增加目标命令（如 `file.read`、`file.write`、`process.manage`、`process.exec`、`process.which`、`system.notify`、`system.clipboard`、`system.input`、`node.selfUpdate`）。
 
-## 12. system.input
+## 13. system.input
 
 用途：控制鼠标与键盘输入，支持一个请求内多动作顺序执行。
 说明：参数校验通过后请求会异步入队，`node.invoke` 立即返回，不等待动作执行完成。
