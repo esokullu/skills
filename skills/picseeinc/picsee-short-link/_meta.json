@@ -1,13 +1,18 @@
 {
   "owner": "picseeinc",
   "slug": "picsee-short-link",
-  "displayName": "PicSee URL Shortener & QR Codes",
+  "displayName": "PicSee Short Link",
   "latest": {
-    "version": "1.0.1",
-    "publishedAt": 1772586235067,
-    "commit": "https://github.com/openclaw/skills/commit/7c6d3f8a602d70fdf52083ff28cbc9097d0e93ed"
+    "version": "1.1.0",
+    "publishedAt": 1772784940274,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1772586235067,
+      "commit": "https://github.com/openclaw/skills/commit/7c6d3f8a602d70fdf52083ff28cbc9097d0e93ed"
+    },
     {
       "version": "1.0.0",
       "publishedAt": 1771946083085,
