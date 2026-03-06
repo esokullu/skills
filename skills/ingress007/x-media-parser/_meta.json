@@ -1,0 +1,11 @@
+{
+  "owner": "ingress007",
+  "slug": "x-media-parser",
+  "displayName": "X Media Parser",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1772694233384,
+    "commit": null
+  },
+  "history": []
+}
