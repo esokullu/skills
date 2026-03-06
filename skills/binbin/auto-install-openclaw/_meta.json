@@ -1,0 +1,11 @@
+{
+  "owner": "binbin",
+  "slug": "auto-install-openclaw",
+  "displayName": "Install OpenClaw",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1772732696368,
+    "commit": null
+  },
+  "history": []
+}
