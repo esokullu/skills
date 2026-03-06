@@ -146,7 +146,7 @@ python3 skills/train/train.py ticket '{"start":"杭州","end":"北京","date":"2
 
 ## 常见错误码
 
-来源于 [官方火车文档](https://www.jisuapi.com/api/train/)：
+来源于 [极速数据火车文档](https://www.jisuapi.com/api/train/)：
 
 | 代号 | 说明                 |
 |------|----------------------|

@@ -1,11 +1,17 @@
 {
   "owner": "jisuapi",
   "slug": "train",
-  "displayName": "极速数据火车查询",
+  "displayName": "火车查询 - Train Ticket Inquiry",
   "latest": {
-    "version": "1.0.0",
-    "publishedAt": 1772518352391,
-    "commit": "https://github.com/openclaw/skills/commit/7531e5fa718ed6182bea054f8b42f9a5cbcdcc80"
+    "version": "1.0.2",
+    "publishedAt": 1772533411627,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1772518352391,
+      "commit": "https://github.com/openclaw/skills/commit/7531e5fa718ed6182bea054f8b42f9a5cbcdcc80"
+    }
+  ]
 }
