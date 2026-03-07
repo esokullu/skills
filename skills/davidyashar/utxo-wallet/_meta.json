@@ -1,0 +1,11 @@
+{
+  "owner": "davidyashar",
+  "slug": "utxo-wallet",
+  "displayName": "UTXO Wallet",
+  "latest": {
+    "version": "1.2.0",
+    "publishedAt": 1772866583878,
+    "commit": null
+  },
+  "history": []
+}
