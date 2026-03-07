@@ -3,11 +3,16 @@
   "slug": "which-llm",
   "displayName": "Which LLM? Deterministic model selection for agents",
   "latest": {
-    "version": "1.0.11",
-    "publishedAt": 1770824473862,
-    "commit": "https://github.com/openclaw/skills/commit/a5c0b11d12cba1c39dc5be2d376a75187b97887f"
+    "version": "1.0.15",
+    "publishedAt": 1772896378699,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.11",
+      "publishedAt": 1770824473862,
+      "commit": "https://github.com/openclaw/skills/commit/a5c0b11d12cba1c39dc5be2d376a75187b97887f"
+    },
     {
       "version": "1.0.9",
       "publishedAt": 1770823358731,

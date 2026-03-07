@@ -6,30 +6,42 @@
   "description": "Deterministic decision-ranking API with HTTP 402 USDC payments and outcome credits (discounts).",
   "homepage": "https://which-llm.com",
   "updated_at": "2026-02-11T13:45:00Z",
-  "security_notice": "This skill involves real cryptocurrency payments. Users must provide the agent with access to a dedicated wallet containing limited funds for autonomous operation. Verify payment addresses from multiple trusted sources before providing wallet access.",
+  "security_notice": "Paid API calls require wallet credentials for a separate low-balance EVM wallet. Prefer an encrypted keystore, verify payment addresses across multiple publication channels, and treat per-request approval as host-dependent rather than guaranteed by the skill alone.",
   "disableModelInvocation": false,
   "invocation_model": {
     "always_on": false,
     "trigger": "on_demand",
-    "approval_model": "autonomous_no_per_request_approval",
-    "description": "This skill only activates when explicitly called by the agent for decision optimization tasks. It does not run in the background or monitor continuously.",
-    "autonomous_payment_rationale": "Due to the very low per-request cost ($0.01 USDC + minimal gas, or ~$0.005 USDC with 50% credit refunds), the system is designed for autonomous operation without per-request user approval. Requiring approval for each micro-payment would create approval fatigue and negate the value of autonomous decision optimization. Users control total spending by limiting the dedicated wallet balance (both USDC and gas tokens)."
+    "approval_model": "per_request_user_approval_required",
+    "description": "This skill is invoked on demand for decision optimization. It does not run continuously or monitor in the background.",
+    "autonomous_payment_rationale": "The declared default policy is explicit user approval before each payment. A host may later allow a lower-friction mode if a human deliberately enables it, but only for a separate wallet with a strict balance cap.",
+    "approval_toggle": {
+      "available": true,
+      "default_mode": "per_request_approval_required",
+      "alternate_mode": "human_opt_in_low_friction_payments",
+      "human_controlled": true,
+      "risk_note": "Disabling per-request approval increases the blast radius of the wallet credential. Only enable it for a separate low-balance wallet after reviewing the tradeoff."
+    },
+    "approval_policy": {
+      "declared_default": "per_request_approval_required",
+      "host_enforcement_guarantee": "external_or_unknown",
+      "host_enforcement_note": "This skill declares the intended default approval policy, but the actual approval behavior depends on the host agent or runtime configuration."
+    }
   },
   "scope_limitations": {
     "modifies_other_skills": false,
     "modifies_system_settings": false,
     "accesses_other_skill_data": false,
-    "description": "This skill operates in isolation, only interacting with the Which-LLM API and blockchain for payments. It does not modify, access, or interfere with other skills or system configurations."
+    "description": "This skill only interacts with the Which-LLM API and blockchain payment flow. It does not modify other skills or system settings."
   },
   "credentials": {
     "required": true,
     "primary_credential_type": "WALLET_CREDENTIALS",
     "autonomous_capabilities": [
-      "sign_transactions",
-      "send_usdc_payments",
-      "query_blockchain_state"
+      "query_blockchain_state",
+      "prepare_payment_transactions",
+      "sign_transactions_after_human_approval"
     ],
-    "description": "This skill requires dedicated EVM-compatible wallet credentials that allow the agent to autonomously sign and send USDC payment transactions on-chain.",
+    "description": "This skill requires credentials for a separate low-balance EVM wallet so it can prepare, sign, and submit exact USDC payments for paid API calls. The preferred credential path is an encrypted keystore.",
     "wallet_requirements": {
       "type": "EVM-compatible",
       "supported_chains": ["Ethereum", "Base", "Arbitrum", "Optimism", "Avalanche"],
@@ -38,49 +50,25 @@
       "credential_formats_supported": {
         "v0.1.0": [
           {
+            "type": "encrypted_keystore",
+            "format": "JSON keystore file or JSON keystore string plus password",
+            "env_vars": ["WALLET_KEYSTORE_PATH", "WALLET_KEYSTORE_JSON", "WALLET_KEYSTORE_PASSWORD"],
+            "status": "supported",
+            "recommended": true,
+            "risk_level": "lower_than_raw_private_key",
+            "mitigation": "Use an encrypted keystore for a separate wallet with a small balance only."
+          },
+          {
             "type": "raw_private_key",
             "format": "64-char hex with 0x prefix",
             "env_var": "WALLET_PRIVATE_KEY",
             "status": "supported",
-            "recommended": true,
-            "risk_level": "acceptable_with_dedicated_wallet",
-            "mitigation": "Use dedicated wallet with limited funds only ($2-10 USDC + $3-5 gas token for transaction fees)"
+            "recommended": false,
+            "risk_level": "higher_risk_fallback",
+            "mitigation": "Use only as a fallback for a separate wallet with a small balance only."
           }
         ],
-        "future_consideration": [
-          {
-            "type": "mnemonic_phrase",
-            "format": "12 or 24-word BIP-39 seed phrase",
-            "status": "not_implemented",
-            "risk_level": "same_as_private_key"
-          },
-          {
-            "type": "keystore_file",
-            "format": "Encrypted JSON keystore + password",
-            "status": "not_implemented",
-            "risk_level": "acceptable_with_dedicated_wallet"
-          },
-          {
-            "type": "hardware_signer",
-            "format": "Ledger/Trezor integration",
-            "status": "incompatible_with_autonomous_model",
-            "reason": "Requires per-transaction user approval, breaks autonomous payment flow"
-          },
-          {
-            "type": "delegated_contract",
-            "format": "Smart contract with spending limits",
-            "status": "not_implemented",
-            "risk_level": "better_isolation",
-            "consideration": "Could implement ERC-2771/GSN or custom spending limit contract"
-          },
-          {
-            "type": "remote_signer_endpoint",
-            "format": "HTTP signing service (AWS KMS, Cloud HSM)",
-            "status": "not_implemented",
-            "risk_level": "acceptable_with_audit_logging",
-            "consideration": "Adds network dependency and latency"
-          }
-        ]
+        "note": "Preferred: encrypted keystore. Fallback: raw private key."
       }
     },
     "required_capabilities": [
@@ -93,26 +81,53 @@
       "per_request_cost": "0.01 USDC",
       "per_request_cost_with_credits": "~0.005 USDC",
       "gas_cost_per_transaction": "~0.01-0.05 USD (varies by chain, lowest on Base)",
-      "max_autonomous_spend": "Wallet USDC balance (user-controlled)",
-      "approval_required": false,
-      "rationale": "Per-request cost is very low ($0.01 USDC + minimal gas, or ~$0.005 USDC with 50% credit refunds). Requiring approval for each request would create approval fatigue. Users control total spending by limiting the dedicated wallet balance (e.g., $2-10 USDC + $3-5 gas allows 200-1000 requests without credits, or ~399-1999 requests when using credits).",
+      "max_autonomous_spend": "0 by default; wallet balance only if a human explicitly enables the alternate mode",
+      "approval_required": true,
+      "rationale": "Per-request cost is low, but the declared default safety posture is explicit human approval for each payment. Spend remains bounded by the small balance kept in the separate wallet.",
       "recommended_funding": {
         "usdc": "$2-10 for API payments",
         "gas_token": "$3-5 in ETH (Base/Ethereum/Arbitrum/Optimism) or AVAX (Avalanche) for transaction fees",
         "note": "Both assets required in the same dedicated wallet"
-      }
+      },
+      "human_toggle_note": "A human may choose to disable per-request approval for lower-friction operation, but approval is intended to be enabled by default and actual enforcement depends on the host."
     },
     "setup_instructions_ref": "See SKILL.md sections: 'Prerequisites', 'Wallet Setup Best Practices', 'Payment Security Verification'"
   },
   "required_environment_variables": [
     {
+      "name": "WALLET_KEYSTORE_PATH",
+      "type": "credential",
+      "required": false,
+      "sensitive": true,
+      "description": "Path to an encrypted keystore for the separate payment wallet.",
+      "example_format": "/secure/path/payment-wallet.json",
+      "security_warning": "Preferred over a raw private key. Use only for a separate low-balance wallet."
+    },
+    {
+      "name": "WALLET_KEYSTORE_JSON",
+      "type": "credential",
+      "required": false,
+      "sensitive": true,
+      "description": "Encrypted keystore JSON for the separate payment wallet.",
+      "example_format": "{\"address\":\"...\",\"crypto\":{...}}",
+      "security_warning": "Preferred over a raw private key. Use only for a separate low-balance wallet."
+    },
+    {
+      "name": "WALLET_KEYSTORE_PASSWORD",
+      "type": "credential",
+      "required": false,
+      "sensitive": true,
+      "description": "Password used to decrypt `WALLET_KEYSTORE_PATH` or `WALLET_KEYSTORE_JSON`.",
+      "security_warning": "Required when using the keystore-based credential path."
+    },
+    {
       "name": "WALLET_PRIVATE_KEY",
       "type": "credential",
-      "required": true,
+      "required": false,
       "sensitive": true,
-      "description": "Private key for the dedicated payment wallet (hex format with 0x prefix, 64 hex characters)",
-      "example_format": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-      "security_warning": "Never use your main wallet. Create a dedicated wallet with limited funds only ($2-10 USDC + $3-5 gas token).",
+      "description": "Raw signing key for the separate payment wallet.",
+      "example_format": "<DEDICATED_WALLET_PRIVATE_KEY_WITH_0x_PREFIX>",
+      "security_warning": "Fallback only. Never use your main wallet. Prefer an encrypted keystore for a separate low-balance wallet.",
       "validation": "Must be 66 characters (0x + 64 hex digits)"
     },
     {
@@ -120,7 +135,7 @@
       "type": "configuration",
       "required": false,
       "sensitive": true,
-      "description": "RPC endpoint URL for blockchain connection. If not provided, uses public RPC endpoints.",
+      "description": "RPC endpoint URL for blockchain connection.",
       "example_format": "https://mainnet.base.org",
       "default_behavior": "Falls back to public RPC endpoints for Base, Ethereum, Arbitrum, Optimism, Avalanche",
       "validation": "Must be valid HTTPS URL"
@@ -130,7 +145,7 @@
       "type": "configuration",
       "required": false,
       "sensitive": false,
-      "description": "Default blockchain network for payments (CAIP-2 chain ID). Base recommended for lower transaction fees.",
+      "description": "Default blockchain network for payments.",
       "example_format": "8453",
       "allowed_values": ["8453", "1", "42161", "10", "43114"],
       "chain_names": {
@@ -143,17 +158,45 @@
       "default_behavior": "Defaults to Base (8453) if not specified"
     }
   ],
+  "environment_variable_requirements": {
+    "summary": "Wallet credentials are required for paid calls via one supported credential path.",
+    "credential_paths": [
+      {
+        "name": "encrypted_keystore_path",
+        "required_env_vars": ["WALLET_KEYSTORE_PATH", "WALLET_KEYSTORE_PASSWORD"],
+        "recommended": true
+      },
+      {
+        "name": "encrypted_keystore_inline",
+        "required_env_vars": ["WALLET_KEYSTORE_JSON", "WALLET_KEYSTORE_PASSWORD"],
+        "recommended": true
+      },
+      {
+        "name": "raw_private_key_fallback",
+        "required_env_vars": ["WALLET_PRIVATE_KEY"],
+        "recommended": false
+      }
+    ],
+    "optional_configuration_env_vars": ["WALLET_RPC_URL", "PREFERRED_CHAIN_ID"],
+    "host_runtime_note": "A registry or host should not summarize this skill as requiring no environment variables; one of the listed credential paths is required for paid requests."
+  },
   "credential_verification_requirements": {
     "payment_address_verification": {
       "required": true,
-      "method": "multi_source_independent_verification",
+      "method": "multi_channel_publication_verification",
       "minimum_sources": 2,
       "verification_sources": [
         "https://which-llm.com/.well-known/payment-address.txt",
+        "https://which-llm.com/.well-known/agent.json",
         "https://which-llm.com/docs/payment-addresses",
         "ENS: which-llm.eth"
       ],
-      "critical_warning": "MUST independently verify payment addresses from multiple sources before providing wallet credentials. Do NOT trust any single source.",
+      "critical_warning": "Verify payment addresses across multiple publication channels before using the wallet. Do not trust any single source.",
+      "channel_independence_note": "These publication channels may still share operational control and should not be treated as fully independent trust anchors. `/.well-known/agent.json` is an additional publication path, not a separate operator-controlled trust anchor by itself.",
+      "separate_trust_anchor": {
+        "available": false,
+        "note": "No separate signed address statement, on-chain attestation, or second independently controlled publication domain is currently published."
+      },
       "verification_instructions_ref": "SKILL.md section: 'Payment Security Verification'"
     }
   },
@@ -196,10 +239,12 @@
       "method": "external",
       "verification_sources": [
         "https://which-llm.com/.well-known/payment-address.txt",
+        "https://which-llm.com/.well-known/agent.json",
         "https://which-llm.com/docs/payment-addresses",
         "ENS: which-llm.eth (payment-address TXT record)"
       ],
-      "verification_note": "CRITICAL: The user MUST independently verify the payment address from multiple trusted sources before sending funds. Do NOT trust any single source including this skill file."
+      "verification_note": "Verify the payment address across multiple publication channels before sending funds. Do not trust any single source, including this skill file.",
+      "channel_independence_note": "The listed publication channels may still share operational control and are not a full substitute for a separate cryptographic trust anchor. `/.well-known/agent.json` adds another retrieval path, not a separate trust operator."
     },
     "proof_headers": {
       "chain": "X-Payment-Chain",
@@ -208,10 +253,10 @@
       "amount": "X-Payment-Amount",
       "asset": "X-Payment-Asset"
     },
-    "security_note": "Only the resulting transaction hash and payer address are provided to the agent as public proof of payment. The API verifies payments on-chain."
+    "security_note": "Only public payment proof is sent to the API: transaction hash and payer address."
   },
   "credits": {
-    "description": "Outcome-based credit system that rewards users for reporting decision results, effectively reducing per-request cost by ~50%",
+    "description": "Outcome reporting can issue credits that reduce the cost of later paid calls.",
     "typical_refund_rate": "50%",
     "effective_cost_with_credits": "~0.005 USDC per request (after first request)",
     "issue": {
@@ -220,20 +265,20 @@
         "path": "/decision/outcome"
       },
       "token_field": "refund_credit.credit_token",
-      "description": "Report the outcome of a decision to earn a credit token (typically 50% refund of original payment)"
+      "description": "Report a decision outcome to earn a credit token."
     },
     "redeem": {
       "header": "X-Credit-Token",
       "effect": "Reduces required_amount on the next paid call",
-      "usage": "Include credit token from previous outcome report to get discount on next optimization request"
+      "usage": "Include a previous credit token to discount the next optimization request."
     },
     "optimization_strategy": {
-      "description": "To maximize value, report outcomes after each decision and use the credit tokens on subsequent requests",
+      "description": "Report outcomes and reuse credits on later requests.",
       "wallet_funding_example": {
         "without_credits": "$5 USDC + $3 gas = 500 requests",
         "with_credits": "$5 USDC + $3 gas = ~999 requests (all except first use 50% discount)"
       },
-      "note": "Credits effectively double request count when used consistently"
+      "note": "Credits can materially reduce total spend when reused consistently."
     },
     "credit_lifecycle": {
       "decay": "50% decay after 30 days",
