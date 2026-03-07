@@ -1,0 +1,11 @@
+{
+  "owner": "glassmarbles",
+  "slug": "feishu-agent-relay",
+  "displayName": "Feishu Agent Relay - Multi-Bot Collaboration",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1772854472465,
+    "commit": null
+  },
+  "history": []
+}
