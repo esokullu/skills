@@ -14,6 +14,11 @@ CHECK_INTERVAL="${CHECK_INTERVAL:-60}"
 MAX_RETRIES=3
 RETRY_COOLDOWN=60
 
+# 飞书连接健康检查配置
+FEISHU_HEALTH_ENABLED="${FEISHU_HEALTH_ENABLED:-true}"
+FEISHU_STALE_THRESHOLD_MIN="${FEISHU_STALE_THRESHOLD_MIN:-60}"  # 分钟，超过此时间无飞书活动则判定异常
+FEISHU_GRACE_PERIOD_MIN="${FEISHU_GRACE_PERIOD_MIN:-10}"        # 启动后的宽限期（分钟）
+
 mkdir -p "$LOG_DIR"
 
 # 加载核心函数
@@ -103,6 +108,88 @@ validate_and_fix_config() {
     return 1
 }
 
+# ==================== 飞书连接健康检查 ====================
+# 检测飞书 WebSocket 是否正常：如果网关在运行但超过阈值时间
+# 没有任何飞书消息活动（接收/发送），判定连接可能已僵死
+check_feishu_health() {
+    [ "$FEISHU_HEALTH_ENABLED" != "true" ] && return 0
+
+    # 宽限期：网关刚启动时不检查
+    local gw_start_time
+    gw_start_time=$(get_last_restart_time)
+    local now
+    now=$(date +%s)
+    local grace_seconds=$((FEISHU_GRACE_PERIOD_MIN * 60))
+
+    if [ $((now - gw_start_time)) -lt "$grace_seconds" ]; then
+        log_info "飞书健康检查：宽限期内 (${FEISHU_GRACE_PERIOD_MIN}min)，跳过"
+        return 0
+    fi
+
+    # 找到最新的网关日志文件
+    local log_file
+    log_file=$(find /tmp/openclaw -name "openclaw-*.log" -type f 2>/dev/null | sort -r | head -1)
+
+    if [ -z "$log_file" ] || [ ! -f "$log_file" ]; then
+        # 尝试备用日志位置
+        log_file="$OPENCLAW_HOME/logs/gateway.log"
+        if [ ! -f "$log_file" ]; then
+            log_warn "飞书健康检查：找不到网关日志文件，跳过"
+            return 0
+        fi
+    fi
+
+    # 查找最后一次飞书活动（接收消息或发送完成）
+    # 使用 tail 提高性能，只检查最近的 N 行
+    local last_activity_line
+    last_activity_line=$(tail -500 "$log_file" 2>/dev/null | grep -E "received message from|dispatch complete" | tail -1)
+
+    if [ -z "$last_activity_line" ]; then
+        log_warn "飞书健康检查：日志中未找到飞书活动记录"
+        return 0
+    fi
+
+    # 提取时间戳 (格式: "time":"2026-03-07T16:55:39.779+08:00")
+    local last_time_str
+    last_time_str=$(echo "$last_activity_line" | grep -o '"time":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+    if [ -z "$last_time_str" ]; then
+        log_warn "飞书健康检查：无法解析活动时间戳"
+        return 0
+    fi
+
+    # 转换为 epoch 时间（macOS 兼容）
+    local last_epoch
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS: 移除毫秒和时区后缀，用 date -j 解析
+        local clean_time
+        clean_time=$(echo "$last_time_str" | sed 's/\.[0-9]*+/ /' | sed 's/+08:00//')
+        last_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%S" "$clean_time" +%s 2>/dev/null || echo "0")
+    else
+        # Linux: 支持更灵活的格式
+        last_epoch=$(date -d "$last_time_str" +%s 2>/dev/null || echo "0")
+    fi
+
+    if [ "$last_epoch" -eq 0 ]; then
+        log_warn "飞书健康检查：时间戳转换失败 ($last_time_str)"
+        return 0
+    fi
+
+    # 计算时间差
+    local diff_seconds=$((now - last_epoch))
+    local diff_minutes=$((diff_seconds / 60))
+    local threshold_seconds=$((FEISHU_STALE_THRESHOLD_MIN * 60))
+
+    log_info "飞书健康检查：距上次活动 ${diff_minutes} 分钟 (阈值: ${FEISHU_STALE_THRESHOLD_MIN}min)"
+
+    if [ "$diff_seconds" -gt "$threshold_seconds" ]; then
+        log_warn "飞书连接可能已僵死：${diff_minutes} 分钟无活动"
+        return 1
+    fi
+
+    return 0
+}
+
 # ==================== 清理端口（防止端口冲突） ====================
 cleanup_gateway_port() {
     local port="${GATEWAY_PORT:-18789}"
@@ -142,39 +229,54 @@ restart_gateway() {
         sleep 5
     fi
 
-    # 步骤 2: 清理端口（兜底处理残留进程）
+    # 步骤 2: 验证端口确实已释放（防止 stop 失败但报告成功的情况）
+    if command -v lsof >/dev/null 2>&1; then
+        if lsof -i :$GATEWAY_PORT -sTCP:LISTEN >/dev/null 2>&1; then
+            log_warn "端口 $GATEWAY_PORT 仍被监听，强制清理..."
+            cleanup_gateway_port
+            sleep 2
+        fi
+    fi
+
+    # 步骤 3: 清理端口（兜底处理残留进程）
     cleanup_gateway_port
 
-    # 检测平台并使用正确的重启方式
+    # 步骤 4: 使用 launchctl 重启（macOS 唯一正确方式）
     if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS 使用 launchctl
         local plist="$HOME/Library/LaunchAgents/ai.openclaw.gateway.plist"
         if [ -f "$plist" ]; then
             launchctl unload "$plist" 2>/dev/null || true
             sleep 1
             launchctl load "$plist" 2>/dev/null || true
             launchctl kickstart -k "ai.openclaw.gateway" 2>/dev/null || true
+            log_info "已通过 launchctl 重启网关"
+        else
+            log_error "LaunchAgent plist 不存在: $plist"
+            return 1
         fi
     elif command -v systemctl >/dev/null 2>&1; then
         # Linux 使用 systemd
         systemctl --user restart openclaw-gateway 2>/dev/null || \
         systemctl restart openclaw-gateway 2>/dev/null || true
-    fi
-
-    # 备用: 直接启动
-    if command -v openclaw >/dev/null 2>&1; then
-        openclaw gateway start 2>/dev/null || true
-    fi
-
-    sleep 15
-
-    if check_gateway; then
-        log_info "网关重启成功"
-        return 0
+        log_info "已通过 systemd 重启网关"
     else
-        log_error "网关重启失败"
+        log_error "未找到可用的服务管理器"
         return 1
     fi
+
+    # 步骤 5: 等待并验证（最多等 30 秒）
+    local waited=0
+    while [ $waited -lt 30 ]; do
+        sleep 3
+        waited=$((waited + 3))
+        if check_gateway; then
+            log_info "网关重启成功 (等待 ${waited}秒)"
+            return 0
+        fi
+    done
+
+    log_error "网关重启失败 (等待 ${waited}秒后仍无响应)"
+    return 1
 }
 
 # ==================== 读取重启计数 ====================
@@ -225,14 +327,20 @@ main() {
     
     # 检查网关状态
     if check_gateway; then
-        log_info "网关运行正常"
-        # 重置计数
-        save_restart_count 0
-        save_last_restart_time "$current_time"
-        exit 0
+        # 网关进程在运行，进一步检查飞书连接健康
+        if check_feishu_health; then
+            log_info "网关运行正常，飞书连接健康"
+            # 重置计数
+            save_restart_count 0
+            save_last_restart_time "$current_time"
+            exit 0
+        else
+            log_warn "网关进程在运行但飞书连接可能已僵死，触发重启..."
+            notify "WARNING" "飞书连接已僵死 (${FEISHU_STALE_THRESHOLD_MIN}min 无活动)，正在重启网关..."
+        fi
+    else
+        log_warn "网关进程异常，准备修复..."
     fi
-    
-    log_warn "网关异常，准备修复..."
     
     # 冷却期检查
     if [ "$time_since_restart" -lt "$RETRY_COOLDOWN" ]; then
@@ -247,11 +355,9 @@ main() {
         # 发送告警
         notify "ERROR" "Gateway 连续重启 $restart_count 次失败，需要人工干预!"
         
-        # 触发应急脚本（如果存在）
-        if [ -x "$SCRIPT_DIR/config-rollback.sh" ]; then
-            log_warn "触发配置回滚..."
-            bash "$SCRIPT_DIR/config-rollback.sh"
-        fi
+        # 触发配置回滚（使用 Git 快照）
+        log_warn "触发配置回滚..."
+        bash "$SCRIPT_DIR/git-tag.sh" quick-rollback 2>/dev/null || log_warn "回滚失败，请手动检查"
         
         exit 1
     fi
@@ -259,7 +365,7 @@ main() {
     # 验证配置
     if ! validate_and_fix_config; then
         log_error "配置验证/修复失败"
-        ((restart_count++))
+        restart_count=$((restart_count + 1))
         save_restart_count "$restart_count"
         save_last_restart_time "$current_time"
         
@@ -283,7 +389,7 @@ main() {
         fi
     else
         log_error "重启失败"
-        ((restart_count++))
+        restart_count=$((restart_count + 1))
         save_restart_count "$restart_count"
         save_last_restart_time "$current_time"
         

@@ -386,7 +386,7 @@ main() {
     echo ""
     echo "使用说明:"
     echo "  保存安全配置: bash security-hardening.sh --save-safe"
-    echo "  回滚到安全配置: bash config-rollback.sh --safe"
+    echo "  回滚到安全配置: bash git-tag.sh quick-rollback"
     echo ""
     echo "详细日志: $LOG_FILE"
 }

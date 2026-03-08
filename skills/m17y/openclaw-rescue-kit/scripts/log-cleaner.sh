@@ -264,6 +264,60 @@ clean_daily_logs() {
     log "每日日志清理完成: 归档 $archived 个文件"
 }
 
+# ==================== 清理回滚备份 ====================
+clean_rollback_backups() {
+    local dry_run="${1:-false}"
+    log "========== 清理回滚备份 =========="
+    
+    local rollback_dir="$BACKUP_DIR"
+    local keep_count=10
+    
+    if [ ! -d "$rollback_dir" ]; then
+        log "备份目录不存在，跳过"
+        return
+    fi
+    
+    # 统计 rollback 备份文件
+    local rollback_files
+    rollback_files=$(find "$rollback_dir" -maxdepth 1 -name "openclaw.json.rollback_*" -type f 2>/dev/null | wc -l | tr -d ' ')
+    
+    if [ "$rollback_files" -le "$keep_count" ]; then
+        log "回滚备份: $rollback_files 个 (<= $keep_count)，无需清理"
+        return
+    fi
+    
+    local deleted_count=0
+    local freed_space=0
+    
+    # 按时间排序，保留最新的 N 个，删除其余
+    local to_delete
+    to_delete=$(find "$rollback_dir" -maxdepth 1 -name "openclaw.json.rollback_*" -type f -print0 2>/dev/null | \
+        xargs -0 stat -f "%m %N" 2>/dev/null | \
+        sort -rn | \
+        tail -n +$((keep_count + 1)) | \
+        cut -d' ' -f2-)
+    
+    if [ -n "$to_delete" ]; then
+        while IFS= read -r file; do
+            if [ -f "$file" ]; then
+                local size
+                size=$(stat -f%z "$file" 2>/dev/null || echo 0)
+                freed_space=$((freed_space + size))
+                deleted_count=$((deleted_count + 1))
+                if [ "$dry_run" = "true" ]; then
+                    log "  [试运行] 删除: $(basename "$file")"
+                else
+                    log "  删除: $(basename "$file")"
+                    rm -f "$file"
+                fi
+            fi
+        done <<< "$to_delete"
+    fi
+    
+    log "回滚备份清理完成: 保留 $keep_count 个，删除约 $deleted_count 个，释放 $(format_bytes $freed_space)"
+    log "提示: Git 快照才是配置的真正安全网 (git-tag.sh)"
+}
+
 # ==================== 清理临时文件 ====================
 clean_temp_files() {
     log "========== 清理临时文件 =========="
@@ -338,6 +392,7 @@ main() {
     clean_lock_files
     clean_file_logs
     clean_sessions
+    clean_rollback_backups "$dry_run"
     clean_daily_logs
     clean_temp_files
     

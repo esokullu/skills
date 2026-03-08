@@ -3,9 +3,15 @@
   "slug": "openclaw-rescue-kit",
   "displayName": "Openclaw Rescue Kit",
   "latest": {
-    "version": "1.9.4",
-    "publishedAt": 1772823964219,
-    "commit": "https://github.com/openclaw/skills/commit/e914e06bfde0b93db21b5cd72c5a51bc91ab0b16"
+    "version": "1.11.0",
+    "publishedAt": 1772874158711,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.9.4",
+      "publishedAt": 1772823964219,
+      "commit": "https://github.com/openclaw/skills/commit/e914e06bfde0b93db21b5cd72c5a51bc91ab0b16"
+    }
+  ]
 }

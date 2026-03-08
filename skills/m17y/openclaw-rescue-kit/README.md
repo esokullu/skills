@@ -98,7 +98,6 @@ launchctl load ~/Library/LaunchAgents/ai.openclaw.*.plist
 | `gateway-start.sh` | 网关启动包装（端口冲突防护） | 被 LaunchAgent 调用 |
 | `gateway-watchdog.sh` | 网关看门狗（配置验证+自动回滚+重启） | 定时任务 |
 | `health-check.sh` | 健康检查（资源、消息活动） | 定时任务 |
-| `config-rollback.sh` | 配置回滚（多级备份） | 手动/看门狗触发 |
 | `security-hardening.sh` | 安全加固扫描 | 手动 |
 | `notify.sh` | 告警通知（飞书/Telegram/企微/钉钉） | 被其他脚本调用 |
 | `log-cleaner.sh` | 智能日志清理 | 定时任务 |
@@ -135,7 +134,6 @@ launchctl load ~/Library/LaunchAgents/ai.openclaw.*.plist
 # 网关反复重启
 tail -f ~/.openclaw/logs/watchdog.log
 bash ~/.openclaw/scripts/core.sh
-bash ~/.openclaw/scripts/config-rollback.sh
 
 # 告警不生效
 bash ~/.openclaw/scripts/notify.sh "测试消息"

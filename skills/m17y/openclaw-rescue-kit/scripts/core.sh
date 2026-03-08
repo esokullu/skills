@@ -182,10 +182,16 @@ check_zombie_state() {
         return 0
     fi
     
-    # 查找最新的 session 文件修改时间
+    # 查找最新的 session 文件修改时间（使用 find -printf 避免 ps 解析问题）
     local newest_file
-    newest_file=$(find "$sessions_dir" -name "*.jsonl" -type f -exec stat -f "%m %N" {} + 2>/dev/null | \
-                  sort -rn | head -1 | awk '{print $2}')
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS: 使用 stat 代替 find -printf
+        newest_file=$(find "$sessions_dir" -name "*.jsonl" -type f -print0 2>/dev/null | \
+                      xargs -0 stat -f "%m %N" 2>/dev/null | sort -rn | head -1 | awk '{print $2}')
+    else
+        newest_file=$(find "$sessions_dir" -name "*.jsonl" -type f -printf "%T@ %p\n" 2>/dev/null | \
+                      sort -rn | head -1 | cut -d' ' -f2-)
+    fi
     
     if [ -z "$newest_file" ]; then
         log_warn "未找到 session 文件"
@@ -194,8 +200,18 @@ check_zombie_state() {
     
     # 计算文件修改时间与当前时间的差值（小时）
     local file_mtime file_age_hours
-    file_mtime=$(stat -f "%m" "$newest_file" 2>/dev/null || stat -c "%Y" "$newest_file" 2>/dev/null)
-    file_age_hours=$(( ($(date +%s) - $file_mtime) / 3600 ))
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        file_mtime=$(stat -f "%m" "$newest_file" 2>/dev/null)
+    else
+        file_mtime=$(stat -c "%Y" "$newest_file" 2>/dev/null)
+    fi
+    
+    if [ -z "$file_mtime" ] || [ "$file_mtime" = "0" ]; then
+        log_warn "无法获取 session 文件修改时间"
+        return 0
+    fi
+    
+    file_age_hours=$(( ($(date +%s) - file_mtime) / 3600 ))
     
     log_info "最新 session 文件: $(basename "$newest_file"), 修改时间: ${file_age_hours}小时前"
     

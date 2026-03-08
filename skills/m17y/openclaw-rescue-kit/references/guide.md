@@ -94,24 +94,20 @@ bash ~/.openclaw/scripts/health-check.sh
 - 磁盘使用率（阈值 90%）
 - 内存使用率（阈值 85%）
 
-### 5. config-rollback.sh - 配置回滚
+### 5. git-tag.sh - 配置快照与回滚
 
-自动发现所有可用备份，多级回滚策略。
+使用 Git tag 管理配置版本，比文件拷贝更可靠。
 
 ```bash
-# 回滚到最近的可用备份
-bash ~/.openclaw/scripts/config-rollback.sh
+# 查看所有快照
+bash ~/.openclaw/scripts/git-tag.sh list
 
-# 回滚到安全配置
-bash ~/.openclaw/scripts/config-rollback.sh --safe
+# 快速回滚到上一个安全版本
+bash ~/.openclaw/scripts/git-tag.sh quick-rollback
+
+# 回滚到指定标签
+bash ~/.openclaw/scripts/git-tag.sh rollback <tag-name>
 ```
-
-备份发现顺序：
-1. `~/.openclaw/backups/openclaw.json.backup_*`（带时间戳的备份）
-2. `openclaw.json.bak`（OpenClaw 自动备份）
-3. `openclaw.json.bak.1` ~ `bak.4`（编号备份）
-4. `openclaw.json.bak.safe`（安全备份）
-5. `~/.openclaw/backups/safe-config/openclaw.json.safe`（安全配置目录）
 
 ### 6. security-hardening.sh - 安全加固
 
@@ -324,7 +320,6 @@ export CLEANER_KEEP_DAYS=14                   # 日志保留天数
 - `~/.openclaw/logs/core.log` — 核心诊断日志
 - `~/.openclaw/logs/watchdog.log` — 看门狗运行日志
 - `~/.openclaw/logs/health-check.log` — 健康检查日志
-- `~/.openclaw/logs/config-rollback.log` — 配置回滚日志
 - `~/.openclaw/logs/security-hardening.log` — 安全加固日志
 - `~/.openclaw/logs/cleaner.log` — 日志清理日志
 - `~/.openclaw/logs/alerts.log` — 告警记录

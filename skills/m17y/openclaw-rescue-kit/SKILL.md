@@ -56,24 +56,24 @@ bash ~/.openclaw/scripts/notify.sh -l INFO "自救套件部署完成"
 | `gateway-start.sh` | 网关启动包装（端口冲突防护 + 自动清理） | 被 LaunchAgent 调用 |
 | `gateway-watchdog.sh` | 网关看门狗（配置验证+自动回滚+重启） | 定时任务 |
 | `health-check.sh` | 健康检查（资源、消息活动） | 定时任务 |
-| `config-rollback.sh` | 配置回滚（多级备份） | 手动/看门狗触发 |
+| `git-tag.sh` | 配置快照与回滚（Git tag） | 手动/看门狗触发 |
 | `security-hardening.sh` | 安全加固扫描 | 手动 |
 | `notify.sh` | 告警通知（飞书/Telegram/企微/钉钉） | 被其他脚本调用 |
 | `log-cleaner.sh` | 智能日志清理 | 定时任务 |
-| `git-tag.sh` | Git 配置版本管理 | 手动/定时任务 |
+
 | `safe-config-modify.sh` | 安全配置修改（原子写入+自动回滚） | 手动/被其他脚本调用 |
 
-### config-rollback.sh 使用
+### git-tag.sh 使用（配置回滚）
 
 ```bash
-# 试运行（只看不执行）
-bash ~/.openclaw/scripts/config-rollback.sh --dry-run
+# 查看所有配置快照
+bash ~/.openclaw/scripts/git-tag.sh list
 
-# 实际回滚
-bash ~/.openclaw/scripts/config-rollback.sh
+# 快速回滚到上一个安全版本
+bash ~/.openclaw/scripts/git-tag.sh quick-rollback
 
-# 回滚到安全配置
-bash ~/.openclaw/scripts/config-rollback.sh --safe
+# 回滚到指定版本
+bash ~/.openclaw/scripts/git-tag.sh rollback <tag-name>
 ```
 
 ## 定时任务配置
@@ -233,7 +233,7 @@ FEISHU_WEBHOOK_URL="https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_HOOK_ID"
 # 网关反复重启
 tail -f ~/.openclaw/logs/watchdog.log
 bash ~/.openclaw/scripts/core.sh
-bash ~/.openclaw/scripts/config-rollback.sh --dry-run
+bash ~/.openclaw/scripts/git-tag.sh list
 
 # 告警不生效
 bash ~/.openclaw/scripts/notify.sh "测试消息"

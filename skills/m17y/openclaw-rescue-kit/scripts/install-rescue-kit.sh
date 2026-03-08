@@ -78,7 +78,6 @@ install_scripts() {
         "core.sh"
         "gateway-watchdog.sh"
         "gateway-start.sh"
-        "config-rollback.sh"
         "health-check.sh"
         "security-hardening.sh"
         "notify.sh"
@@ -396,7 +395,7 @@ main() {
     echo -e "  ${BOLD}快速使用:${NC}"
     echo -e "  bash $OPENCLAW_HOME/scripts/core.sh          ${CYAN}# 查看状态${NC}"
     echo -e "  bash $OPENCLAW_HOME/scripts/health-check.sh  ${CYAN}# 健康检查${NC}"
-    echo -e "  bash $OPENCLAW_HOME/scripts/config-rollback.sh --dry-run  ${CYAN}# 试运行回滚${NC}"
+    echo -e "  bash $OPENCLAW_HOME/scripts/git-tag.sh list  ${CYAN}# 查看配置快照${NC}"
     echo ""
 }
 
