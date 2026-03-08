@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.3.4] - 2026-03-07
+
+### 修复
+
+- ✅ SKILL.md frontmatter 补充 `mcporter` 二进制依赖声明
+- ✅ SKILL.md frontmatter 补充 `DINGTALK_MCP_DOCS_URL` 凭证声明和 `primaryEnv`
+- ✅ README.md 明确补充环境变量配置方式与凭证敏感性说明
+- ✅ README.md / SKILL.md 新增本地文件脚本行为说明，明确 import / export 会处理工作区内文件
+- ✅ 统一 registry metadata、package.json、README、SKILL 的依赖与凭证口径
+
+## [0.3.3] - 2026-03-07
+
+### 文档一致性修复
+
+- ✅ README.md 的读取示例补充灰度提示，避免用户误以为所有实例都能直接调用读取接口
+- ✅ references/api-reference.md 补充 `get_document_content_by_url` 灰度说明
+- ✅ references/api-reference.md 的“搜索并读取”工作流改为条件可用说明
+- ✅ references/error-codes.md 新增“方法列表只显示 5 个工具”时的处理规则
+
+## [0.3.2] - 2026-03-07
+
+### 文档更新
+
+- ✅ README.md 新增已知限制说明，明确 `get_document_content_by_url` 当前仍处于灰度发布
+- ✅ README.md 补充 5 个稳定工具 + 1 个灰度工具的可用性说明
+- ✅ SKILL.md 新增灰度发布说明，要求缺少读取接口时按官方未放量处理
+- ✅ SKILL.md 调整读文档意图与错误处理，避免把缺少接口误判为本地配置或权限问题
+
 ## [0.3.1] - 2026-03-05
 
 ### 修复 (open-spec 合规审计)
