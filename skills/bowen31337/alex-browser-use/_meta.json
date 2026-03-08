@@ -1,11 +1,17 @@
 {
   "owner": "bowen31337",
   "slug": "alex-browser-use",
-  "displayName": "Browser Use Agent",
+  "displayName": "alex-browser-use",
   "latest": {
-    "version": "1.0.0",
-    "publishedAt": 1772868653019,
-    "commit": "https://github.com/openclaw/skills/commit/ba22208b33d855b2b5e7ea433b925ab3fdfb8cb4"
+    "version": "1.1.0",
+    "publishedAt": 1772871014041,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1772868653019,
+      "commit": "https://github.com/openclaw/skills/commit/ba22208b33d855b2b5e7ea433b925ab3fdfb8cb4"
+    }
+  ]
 }
