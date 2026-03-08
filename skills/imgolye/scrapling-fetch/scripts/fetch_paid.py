@@ -14,7 +14,7 @@ import requests
 # SkillPay Billing Configuration / 计费配置
 # ═══════════════════════════════════════════════════
 BILLING_API_URL = 'https://skillpay.me'
-BILLING_API_KEY = 'YOUR_API_KEY'  # 从 Dashboard → 接入配置 获取
+BILLING_API_KEY = 'sk_0de94ea93e9aca73aafc2b6457b8de378389a21661f9c6ad4e6b7929e390e971'  # SkillPay API Key
 SKILL_ID = '7b495410-fb3e-44ff-9c71-9cd1260bb8b9'  # Scrapling Fetch
 
 VENV_PYTHON = "/Users/gaolei/.openclaw/workspace/.venv/bin/python3"
