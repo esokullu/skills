@@ -1,62 +1,55 @@
-# Aliyun OSS Skill
+# ☁️ 阿里云 OSS 技能
 
-阿里云对象存储技能 - 通过 Node.js SDK + ossutil 管理阿里云存储
+OpenClaw 技能，用于管理阿里云对象存储（OSS）。
+
+## ✨ 功能
+
+- 📤 上传文件
+- 📥 下载文件
+- 📋 列出文件
+- 🗑️ 删除文件
+- 🔗 获取文件 URL（支持私有空间签名）
+- 📊 查看文件信息
+- 📁 移动/复制文件
 
 ## 🚀 快速开始
 
-### 1. 检查环境
-
 ```bash
-bash scripts/setup.sh --check-only
+# 安装依赖
+npm install
+
+# 配置凭证
+bash scripts/setup.sh --access-key-id "xxx" --access-key-secret "xxx" --region "oss-cn-hangzhou" --bucket "mybucket"
+
+# 测试连接
+node scripts/oss_node.mjs test-connection
 ```
 
-### 2. 配置凭证
-
-如果环境检查未通过，运行：
+## 📖 使用示例
 
 ```bash
-bash scripts/setup.sh \
-  --access-key-id "<你的AccessKey ID>" \
-  --access-key-secret "<你的AccessKey Secret>" \
-  --region "oss-cn-hangzhou" \
-  --bucket "<你的存储桶名称>" \
-  --domain "https://你的域名.com"
-```
+# 上传
+node scripts/oss_node.mjs upload --local file.txt --key uploads/file.txt
 
-**获取凭证：**
-- 密钥管理：https://ram.console.aliyun.com/manage/ak
-- 存储桶列表：https://oss.console.aliyun.com/bucket
-
-### 3. 开始使用
-
-**命令行：**
-
-```bash
-# 上传文件
-node scripts/oss_node.mjs upload --local /path/to/file.txt --key uploads/file.txt
-
-# 下载文件
-node scripts/oss_node.mjs download --key uploads/file.txt --local /path/to/file.txt
-
-# 列出文件
+# 列出
 node scripts/oss_node.mjs list --prefix uploads/
+
+# 下载
+node scripts/oss_node.mjs download --key uploads/file.txt --local file.txt
+
+# 删除
+node scripts/oss_node.mjs delete --key uploads/file.txt --force
 
 # 获取 URL
 node scripts/oss_node.mjs url --key uploads/file.txt
 ```
 
-**在 OpenClaw 中：**
+## 🔧 架构
 
-```
-帮我上传 /backups/daily.tar.gz 到阿里云 OSS
-```
+两层降级策略：
+1. **Node.js SDK** (`ali-oss`) - 优先使用
+2. **ossutil CLI** - 备选
 
-## 📚 完整文档
+## 📄 许可证
 
-查看 [SKILL.md](./SKILL.md) 获取完整文档。
-
-## 🔗 相关链接
-
-- [阿里云 OSS 官方文档](https://help.aliyun.com/product/31815.html)
-- [阿里云 OSS Node.js SDK](https://help.aliyun.com/document_detail/32068.html)
-- [ossutil 命令行工具](https://help.aliyun.com/document_detail/120075.html)
+MIT

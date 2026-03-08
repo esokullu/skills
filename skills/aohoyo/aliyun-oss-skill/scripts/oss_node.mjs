@@ -13,14 +13,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // 尝试加载 ali-oss SDK
-let OSS;
-try {
-  OSS = (await import('ali-oss')).default;
-} catch (error) {
-  console.error('❌ ali-oss Node.js SDK 未安装');
-  console.error('请运行: npm install ali-oss');
-  process.exit(1);
-}
+import OSS from 'ali-oss';
 
 // 配置文件路径
 const SKILL_DIR = path.dirname(__dirname);
@@ -195,8 +188,8 @@ class AliyunOSS {
   /**
    * 获取文件 URL
    */
-  getUrl(key, private = false, expires = 3600) {
-    if (private) {
+  getUrl(key, isPrivate = false, expires = 3600) {
+    if (isPrivate) {
       return this.client.signatureUrl(key, {
         expires: expires
       });
