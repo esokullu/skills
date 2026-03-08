@@ -1,43 +1,49 @@
-#!/bin/bash
-# Remove a delegated wallet from pet-me-master config
+#!/usr/bin/env bash
+# Remove a delegated wallet record from pet-me-master config
 
-set -e
+set -euo pipefail
 
-WALLET="${1:?Error: Missing wallet address}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
 
-echo "🗑️  Removing Delegated Wallet from Pet-Me-Master"
-echo "================================================"
-echo ""
+usage() {
+  echo "Usage: $0 <WALLET_ADDRESS>"
+  exit 1
+}
 
-CONFIG_FILE="$HOME/.openclaw/workspace/skills/pet-me-master/config.json"
+[[ $# -eq 1 ]] || usage
+WALLET="$(normalize_wallet "$1")"
+ADDR_LC="$(to_lower "$WALLET")"
 
-if [ ! -f "$CONFIG_FILE" ]; then
-  echo "❌ Error: Pet-me-master config not found"
+CONFIG_FILE="$PET_ME_CONFIG_FILE"
+[ -f "$CONFIG_FILE" ] || err "Pet-me-master config not found: $CONFIG_FILE"
+
+BEFORE_DELEGATED="$(jq --arg addr_lc "$ADDR_LC" '[.delegatedWallets[]? | select(((.address // "") | ascii_downcase) == $addr_lc)] | length' "$CONFIG_FILE")"
+BEFORE_WALLETS="$(jq --arg addr_lc "$ADDR_LC" '[.wallets[]? | select(((.address // "") | ascii_downcase) == $addr_lc)] | length' "$CONFIG_FILE")"
+
+if [ "$BEFORE_DELEGATED" -eq 0 ] && [ "$BEFORE_WALLETS" -eq 0 ]; then
+  echo "⚠️ Wallet not found in delegatedWallets/wallets: $WALLET"
   exit 1
 fi
 
-echo "Wallet to remove: $WALLET"
-echo ""
+cp -f "$CONFIG_FILE" "${CONFIG_FILE}.bak.$(date +%Y%m%d-%H%M%S)"
 
-# Check if wallet exists in config
-if ! jq -e --arg addr "$WALLET" '.wallets[] | select(.address == $addr)' "$CONFIG_FILE" > /dev/null 2>&1; then
-  echo "⚠️  Wallet not found in config"
-  exit 1
+jq --arg addr_lc "$ADDR_LC" '
+  if has("delegatedWallets") then
+    .delegatedWallets = ((.delegatedWallets // []) | map(select(((.address // "") | ascii_downcase) != $addr_lc)))
+  else . end
+  | if has("wallets") then
+      .wallets = ((.wallets // []) | map(select(((.address // "") | ascii_downcase) != $addr_lc)))
+    else . end
+' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp"
+
+mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+
+echo "✅ Wallet removed: $WALLET"
+if jq -e '.delegatedWallets' "$CONFIG_FILE" >/dev/null 2>&1; then
+  echo "delegatedWallets count: $(jq '.delegatedWallets | length' "$CONFIG_FILE")"
 fi
-
-# Show wallet details before removal
-echo "Wallet details:"
-jq --arg addr "$WALLET" '.wallets[] | select(.address == $addr)' "$CONFIG_FILE"
-
-echo ""
-echo "Removing wallet from config..."
-
-# Remove wallet from config
-jq --arg addr "$WALLET" '.wallets |= map(select(.address != $addr))' "$CONFIG_FILE" > "$CONFIG_FILE.tmp" && \
-  mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
-
-echo ""
-echo "✅ Wallet removed from pet-me-master!"
-echo ""
-echo "Remaining wallets:"
-jq '.wallets | length' "$CONFIG_FILE" | xargs -I {} echo "Total: {} wallets"
+if jq -e '.wallets' "$CONFIG_FILE" >/dev/null 2>&1; then
+  echo "wallets count: $(jq '.wallets | length' "$CONFIG_FILE")"
+fi

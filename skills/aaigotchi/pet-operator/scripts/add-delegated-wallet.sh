@@ -1,66 +1,77 @@
-#!/bin/bash
-# Add a delegated wallet to pet-me-master config
+#!/usr/bin/env bash
+# Add a delegated wallet record to pet-me-master config
 
-set -e
+set -euo pipefail
 
-WALLET="${1:?Error: Missing wallet address}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+usage() {
+  echo "Usage: $0 <WALLET_ADDRESS> [NAME]"
+  exit 1
+}
+
+[[ $# -ge 1 ]] || usage
+WALLET="$(normalize_wallet "$1")"
 NAME="${2:-Delegated Wallet}"
 
-echo "📋 Adding Delegated Wallet to Pet-Me-Master"
-echo "============================================"
-echo ""
+require_read_tools
 
-# Check if approved first
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if ! bash "$SCRIPT_DIR/check-approval.sh" "$WALLET" > /dev/null 2>&1; then
-  echo "❌ Error: Wallet $WALLET has not approved AAI as pet operator!"
-  echo "Run generate-delegation-tx.sh first"
-  exit 1
-fi
-
-echo "✅ Wallet approved as pet operator"
-echo ""
-
-# Fetch gotchi IDs
-CONTRACT="0xA99c4B08201F2913Db8D28e71d020c4298F29dBF"
-RPC_URL="https://mainnet.base.org"
-
-BALANCE=$(cast call "$CONTRACT" "balanceOf(address)" "$WALLET" --rpc-url "$RPC_URL" 2>/dev/null)
-COUNT=$((16#${BALANCE:2}))
-
-echo "Gotchis owned: $COUNT"
-echo "Fetching gotchi IDs..."
-echo ""
-
-GOTCHI_IDS=()
-for ((i=0; i<$COUNT; i++)); do
-  TOKEN_ID=$(cast call "$CONTRACT" "tokenOfOwnerByIndex(address,uint256)" "$WALLET" "$i" --rpc-url "$RPC_URL" 2>/dev/null)
-  ID=$((16#${TOKEN_ID:2}))
-  GOTCHI_IDS+=("\"$ID\"")
-  echo "  [$((i+1))/$COUNT] Gotchi #$ID"
-  sleep 0.1
-done
-
-# Update pet-me-master config
-CONFIG_FILE="$HOME/.openclaw/workspace/skills/pet-me-master/config.json"
-
-if [ ! -f "$CONFIG_FILE" ]; then
-  echo "❌ Error: Pet-me-master config not found"
-  exit 1
-fi
-
-# Add wallet to config
-IDS_JSON="[$(IFS=,; echo "${GOTCHI_IDS[*]}")]"
-
-jq --arg name "$NAME" \
-   --arg addr "$WALLET" \
-   --argjson ids "$IDS_JSON" \
-   '.wallets += [{name: $name, address: $addr, gotchiIds: $ids}]' \
-   "$CONFIG_FILE" > "$CONFIG_FILE.tmp" && \
-   mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
-
-echo ""
-echo "✅ Added to pet-me-master!"
+echo "📋 Add Delegated Wallet"
+echo "======================="
 echo "Wallet: $WALLET"
-echo "Name: $NAME"
-echo "Gotchis: $COUNT"
+
+echo "Checking pet operator approval..."
+if ! check_pet_operator_approved "$WALLET"; then
+  err "Wallet $WALLET has not approved AAI as pet operator. Run generate-delegation-tx.sh first."
+fi
+echo "✅ Wallet approved"
+
+echo "Fetching owned gotchi IDs..."
+mapfile -t GOTCHI_IDS < <(fetch_wallet_gotchi_ids "$WALLET")
+COUNT="${#GOTCHI_IDS[@]}"
+
+if [ "$COUNT" -eq 0 ]; then
+  IDS_JSON='[]'
+else
+  IDS_JSON="$(printf '%s\n' "${GOTCHI_IDS[@]}" | jq -R . | jq -s '.')"
+fi
+
+echo "Found $COUNT gotchi(s)"
+if [ "$COUNT" -gt 0 ]; then
+  printf 'IDs: %s\n' "$(IFS=,; echo "${GOTCHI_IDS[*]}")"
+fi
+
+CONFIG_FILE="$PET_ME_CONFIG_FILE"
+[ -f "$CONFIG_FILE" ] || err "Pet-me-master config not found: $CONFIG_FILE"
+
+TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+ADDR_LC="$(to_lower "$WALLET")"
+
+cp -f "$CONFIG_FILE" "${CONFIG_FILE}.bak.$(date +%Y%m%d-%H%M%S)"
+
+jq \
+  --arg name "$NAME" \
+  --arg addr "$WALLET" \
+  --arg addr_lc "$ADDR_LC" \
+  --arg ts "$TS" \
+  --argjson ids "$IDS_JSON" \
+  '
+  .delegatedWallets = ((.delegatedWallets // [])
+    | map(select(((.address // "") | ascii_downcase) != $addr_lc))
+    + [{name:$name,address:$addr,gotchiIds:$ids,approved:true,updatedAt:$ts}])
+  | if has("wallets") then
+      .wallets = ((.wallets // [])
+        | map(select(((.address // "") | ascii_downcase) != $addr_lc))
+        + [{name:$name,address:$addr,gotchiIds:$ids}])
+    else
+      .
+    end
+  ' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp"
+
+mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+
+echo "✅ Delegated wallet saved"
+echo "Config: $CONFIG_FILE"
+echo "delegatedWallets count: $(jq '.delegatedWallets | length' "$CONFIG_FILE")"

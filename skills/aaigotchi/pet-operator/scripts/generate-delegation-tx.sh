@@ -1,21 +1,38 @@
-#!/bin/bash
-# Generate pet operator delegation transaction details
+#!/usr/bin/env bash
+# Generate pet operator delegation transaction details (approved=true)
 
-WALLET="${1:?Error: Missing wallet address}"
+set -euo pipefail
 
-echo "🔑 Pet Operator Delegation"
-echo "=========================="
-echo ""
-echo "Wallet: $WALLET"
-echo "Operator: 0xb96B48a6B190A9d509cE9312654F34E9770F2110 (AAI)"
-echo ""
-echo "Transaction Details:"
-echo "===================="
-echo "To: 0xA99c4B08201F2913Db8D28e71d020c4298F29dBF"
-echo "Amount: 0 ETH"
-echo "Network: Base (8453)"
-echo ""
-echo "Hex Data:"
-echo "0xcd675d57000000000000000000000000b96b48a6b190a9d509ce9312654f34e9770f21100000000000000000000000000000000000000000000000000000000000000001"
-echo ""
-echo "What this does: Approves AAI to pet your gotchis (you keep ownership!)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+usage() {
+  echo "Usage: $0 <WALLET_ADDRESS>"
+  exit 1
+}
+
+[[ $# -eq 1 ]] || usage
+WALLET="$(normalize_wallet "$1")"
+
+DATA="$(set_pet_operator_calldata true)"
+
+cat <<OUT
+🔑 Pet Operator Delegation
+==========================
+
+Wallet: $WALLET
+Operator: $AAI_OPERATOR (AAI)
+
+Transaction Details:
+====================
+To: $AAVEGOTCHI_DIAMOND
+Amount: 0 ETH
+Network: Base (8453)
+RPC: $BASE_RPC_URL
+
+Hex Data:
+$DATA
+
+What this does: approves AAI to pet your gotchis (you keep ownership).
+OUT

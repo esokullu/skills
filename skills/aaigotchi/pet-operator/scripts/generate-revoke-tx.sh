@@ -1,23 +1,38 @@
-#!/bin/bash
-# Generate transaction to REVOKE pet operator approval
+#!/usr/bin/env bash
+# Generate transaction to revoke pet operator approval (approved=false)
 
-WALLET="${1:?Error: Missing wallet address}"
+set -euo pipefail
 
-echo "🔓 Revoke Pet Operator Delegation"
-echo "=================================="
-echo ""
-echo "Wallet: $WALLET"
-echo "Revoking: 0xb96B48a6B190A9d509cE9312654F34E9770F2110 (AAI)"
-echo ""
-echo "Transaction Details:"
-echo "===================="
-echo "To: 0xA99c4B08201F2913Db8D28e71d020c4298F29dBF"
-echo "Amount: 0 ETH"
-echo "Network: Base (8453)"
-echo ""
-echo "Hex Data (approved=false):"
-echo "0xcd675d57000000000000000000000000b96b48a6b190a9d509ce9312654f34e9770f21100000000000000000000000000000000000000000000000000000000000000000"
-echo ""
-echo "What this does: REMOVES AAI's ability to pet your gotchis"
-echo ""
-echo "⚠️  Note: You can re-delegate anytime by running generate-delegation-tx.sh again"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+usage() {
+  echo "Usage: $0 <WALLET_ADDRESS>"
+  exit 1
+}
+
+[[ $# -eq 1 ]] || usage
+WALLET="$(normalize_wallet "$1")"
+
+DATA="$(set_pet_operator_calldata false)"
+
+cat <<OUT
+🔓 Revoke Pet Operator Delegation
+=================================
+
+Wallet: $WALLET
+Revoking operator: $AAI_OPERATOR (AAI)
+
+Transaction Details:
+====================
+To: $AAVEGOTCHI_DIAMOND
+Amount: 0 ETH
+Network: Base (8453)
+RPC: $BASE_RPC_URL
+
+Hex Data (approved=false):
+$DATA
+
+What this does: removes AAI's ability to pet your gotchis.
+OUT

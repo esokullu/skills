@@ -3,9 +3,15 @@
   "slug": "pet-operator",
   "displayName": "Pet Operator",
   "latest": {
-    "version": "1.1.0",
-    "publishedAt": 1772428338589,
-    "commit": "https://github.com/openclaw/skills/commit/d6c81fcf81c4e4f2b3cf8aeafb9e3dd557c625ed"
+    "version": "1.2.0",
+    "publishedAt": 1772826827393,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.1.0",
+      "publishedAt": 1772428338589,
+      "commit": "https://github.com/openclaw/skills/commit/d6c81fcf81c4e4f2b3cf8aeafb9e3dd557c625ed"
+    }
+  ]
 }
