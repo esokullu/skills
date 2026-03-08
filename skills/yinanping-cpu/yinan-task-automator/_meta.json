@@ -1,0 +1,11 @@
+{
+  "owner": "yinanping-cpu",
+  "slug": "yinan-task-automator",
+  "displayName": "Task Automator",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1772876956329,
+    "commit": null
+  },
+  "history": []
+}
