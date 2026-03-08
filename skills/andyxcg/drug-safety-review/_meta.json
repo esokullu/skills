@@ -3,11 +3,16 @@
   "slug": "drug-safety-review",
   "displayName": "Drug Safety Review",
   "latest": {
-    "version": "1.0.1",
-    "publishedAt": 1772758613441,
-    "commit": "https://github.com/openclaw/skills/commit/0680fa2bdf114ab9c6b02792803afe01a1957317"
+    "version": "1.0.3",
+    "publishedAt": 1772947801451,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1772758613441,
+      "commit": "https://github.com/openclaw/skills/commit/0680fa2bdf114ab9c6b02792803afe01a1957317"
+    },
     {
       "version": "1.0.0",
       "publishedAt": 1772687589854,
