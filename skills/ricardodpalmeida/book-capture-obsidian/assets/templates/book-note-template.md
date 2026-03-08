@@ -1,21 +1,16 @@
 ---
 title: "{{title}}"
-authors:
+author:
   - "{{primary_author}}"
+publisher: {{publisher}}
+year: {{published_year}}
 isbn_10: {{isbn_10}}
 isbn_13: {{isbn_13}}
-publisher: {{publisher}}
-published_year: {{published_year}}
-status: {{status}}
-rating: {{rating}}
-started: {{started}}
-finished: {{finished}}
-source: {{source}}
-source_confidence: {{source_confidence}}
-needs_review: {{needs_review}}
-tags: {{tags}}
 cover: {{cover_image}}
+shelf: {{shelf}}
+source: {{source}}
 source_url: {{source_url}}
+tags: {{tags}}
 ---
 
 # {{title}}
@@ -36,12 +31,8 @@ source_url: {{source_url}}
 
 -
 
-## Notes
+## Related
 
 -
 
-## Metadata Audit
-
-- Last ingestion source: {{source}}
-- Last ingestion confidence: {{source_confidence}}
-- Review required: {{needs_review}}
+## User Notes

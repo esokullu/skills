@@ -3,9 +3,15 @@
   "slug": "book-capture-obsidian",
   "displayName": "Book Capture Obsidian",
   "latest": {
-    "version": "1.1.6",
-    "publishedAt": 1772835963245,
-    "commit": "https://github.com/openclaw/skills/commit/f8febdd8139c0b29bea6924ab4ac331525c13c66"
+    "version": "1.2.1",
+    "publishedAt": 1772907451080,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.1.6",
+      "publishedAt": 1772835963245,
+      "commit": "https://github.com/openclaw/skills/commit/f8febdd8139c0b29bea6924ab4ac331525c13c66"
+    }
+  ]
 }
