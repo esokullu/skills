@@ -1,11 +1,17 @@
 {
   "owner": "hushenglang",
   "slug": "extract-youtube-transcript",
-  "displayName": "Extract YouTube Transcript",
+  "displayName": "Extract Youtube Transcript",
   "latest": {
-    "version": "1.0.0",
-    "publishedAt": 1772807899807,
-    "commit": "https://github.com/openclaw/skills/commit/3b74fde951247451b731e2eddd10a64f52f10441"
+    "version": "2.1.0",
+    "publishedAt": 1772891198472,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1772807899807,
+      "commit": "https://github.com/openclaw/skills/commit/3b74fde951247451b731e2eddd10a64f52f10441"
+    }
+  ]
 }
