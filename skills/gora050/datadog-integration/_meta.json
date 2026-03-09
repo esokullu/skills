@@ -1,0 +1,11 @@
+{
+  "owner": "gora050",
+  "slug": "datadog-integration",
+  "displayName": "Datadog",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1772992955281,
+    "commit": null
+  },
+  "history": []
+}
