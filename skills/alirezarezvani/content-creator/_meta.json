@@ -3,11 +3,16 @@
   "slug": "content-creator",
   "displayName": "Content Creator",
   "latest": {
-    "version": "1.0.0",
-    "publishedAt": 1770402538910,
-    "commit": "https://github.com/openclaw/skills/commit/4a2c63e1c1f2f9ad96a208c6b6bff46082195d59"
+    "version": "2.1.1",
+    "publishedAt": 1773070253894,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1770402538910,
+      "commit": "https://github.com/openclaw/skills/commit/4a2c63e1c1f2f9ad96a208c6b6bff46082195d59"
+    },
     {
       "version": "0.1.0",
       "publishedAt": 1769763627884,
