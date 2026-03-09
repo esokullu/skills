@@ -296,18 +296,57 @@ cli({
     const pendingOrder = { exchange, symbol, type, side, amount, price, market_type, params, timestamp: Date.now() };
     writeFileSync(pendingFile, JSON.stringify(pendingOrder));
 
-    const preview = {
-      _preview: true,
-      _message: '⚠️ Order NOT placed. Show this preview to the user and wait for their explicit confirmation (e.g. "确认" or "yes"). Then re-run with confirmed=true.',
-      exchange, symbol, type, side, amount, price: price || 'market',
-      market_type: market_type || 'spot',
-    };
-    if (mkt?.contractSize) {
-      preview._contractSize = mkt.contractSize;
-      preview._amountInBase = amount * mkt.contractSize;
-      preview._unit = `${amount} contracts × ${mkt.contractSize} ${mkt.base}/contract = ${amount * mkt.contractSize} ${mkt.base}`;
+    // Build order details
+    const sideLabel = side === 'buy' ? '买入/做多' : '卖出/做空';
+    const typeLabel = type === 'market' ? '市价' : `限价 ${price}`;
+    const mktType = market_type || 'spot';
+
+    const orderInfo = { 交易所: exchange, 交易对: symbol, 方向: sideLabel, 类型: typeLabel };
+
+    // Fetch current price
+    let curPrice = null;
+    if (type === 'market' || !price) {
+      try {
+        const tick = await ex.fetchTicker(symbol);
+        curPrice = tick.last;
+        orderInfo['当前价格'] = `$${curPrice.toLocaleString()}`;
+      } catch {}
     }
-    return preview;
+
+    // Contract details
+    if (mkt?.contractSize) {
+      orderInfo['合约数量'] = `${amount} 张`;
+      orderInfo['换算'] = `${amount} × ${mkt.contractSize} ${mkt.base}/张 = ${amount * mkt.contractSize} ${mkt.base}`;
+      if (curPrice) orderInfo['预估价值'] = `${(amount * mkt.contractSize * curPrice).toFixed(2)} USDT`;
+    } else {
+      orderInfo['数量'] = `${amount}`;
+      if (curPrice) orderInfo['预估价值'] = `${(amount * curPrice).toFixed(2)} USDT`;
+    }
+
+    // Leverage & margin info for futures
+    if (mktType !== 'spot') {
+      try {
+        const positions = await ex.fetchPositions([symbol]);
+        const pos = positions.find(p => p.symbol === symbol);
+        if (pos) {
+          if (pos.leverage) orderInfo['杠杆'] = `${pos.leverage}x`;
+          if (pos.marginMode || pos.marginType) orderInfo['保证金模式'] = pos.marginMode || pos.marginType;
+          if (curPrice && pos.leverage) {
+            const lev = Number(pos.leverage);
+            const notional = mkt?.contractSize ? amount * mkt.contractSize * curPrice : amount * curPrice;
+            orderInfo['预估保证金'] = `${(notional / lev).toFixed(2)} USDT`;
+          }
+        }
+      } catch {}
+    }
+
+    return {
+      _preview: true,
+      status: '⚠️ 订单未下达',
+      风险提示: '加密货币交易具有高风险，可能导致本金全部损失。合约交易使用杠杆会放大收益和亏损。不要投入无法承受损失的资金。本工具不构成投资建议。',
+      订单详情: orderInfo,
+      操作指引: '请将以上所有信息（包括风险提示）展示给用户。用户回复"确认"或"yes"后，以 confirmed=true 重新调用 create_order。',
+    };
   },
   funding_rate: async ({ exchange, symbol, market_type }) => {
     const ex = await getExchange(exchange, market_type || 'swap', true);
@@ -349,31 +388,141 @@ cli({
     const ex = await getExchange(exchange, market_type);
     try {
       const modeParams = exchange === 'okx' && leverage ? { lever: String(leverage) } : {};
+
+      // OKX isolated mode: try hedge mode first (with posSide), fallback to one-way mode (without posSide)
       if (exchange === 'okx' && margin_mode === 'isolated') {
+        // First try with posSide (hedge mode)
+        let hedgeModeSuccess = true;
         const results = [];
         for (const ps of ['long', 'short']) {
           try {
             results.push(await ex.setMarginMode(margin_mode, symbol, { ...modeParams, posSide: ps }));
           } catch (e) {
             const m = e.message || String(e);
-            if (m.includes('already') || m.includes('No need')) results.push({ posSide: ps, unchanged: true });
-            else throw e;
+            if (m.includes('already') || m.includes('No need') || m.includes('margin mode is not modified')) {
+              results.push({ posSide: ps, unchanged: true });
+            } else if (m.includes('posSide') || m.includes('51000')) {
+              // posSide error = one-way position mode, try without posSide
+              hedgeModeSuccess = false;
+              break;
+            } else throw e;
           }
         }
-        return { success: true, margin_mode, results };
+        if (hedgeModeSuccess) return { success: true, margin_mode, results };
+
+        // Fallback: one-way position mode (no posSide)
+        try {
+          const res = await ex.setMarginMode(margin_mode, symbol, modeParams);
+          return { success: true, margin_mode, response: res };
+        } catch (e2) {
+          const m2 = e2.message || String(e2);
+          if (m2.includes('already') || m2.includes('No need') || m2.includes('margin mode is not modified')) {
+            return { success: true, margin_mode, message: `已经是 ${margin_mode} 模式，无需切换。` };
+          }
+          throw e2;
+        }
       }
+
       const res = await ex.setMarginMode(margin_mode, symbol, modeParams);
-      if (res?.code === -4046 || res?.msg?.includes('No need to change')) {
+      if (res?.code === -4046 || res?.msg?.includes('No need to change') || res?.msg?.includes('margin mode is not modified')) {
         return { success: true, margin_mode, message: `已经是 ${margin_mode} 模式，无需切换。` };
       }
-      return res;
+      return { success: true, margin_mode, response: res };
     } catch (err) {
       const msg = err.message || String(err);
-      if (msg.includes('-4046') || msg.includes('No need to change')) {
+      if (msg.includes('-4046') || msg.includes('No need to change') || msg.includes('already') || msg.includes('margin mode is not modified')) {
         return { success: true, margin_mode, message: `已经是 ${margin_mode} 模式，无需切换。` };
       }
       throw err;
     }
+  },
+  set_trading_params: async ({ exchange, symbol, leverage, margin_mode, market_type }) => {
+    if (!symbol) throw new Error('symbol is required, e.g. BTC/USDT:USDT');
+    if (!leverage && !margin_mode) throw new Error('At least one of leverage or margin_mode is required');
+    const ex = await getExchange(exchange, market_type || 'swap');
+    const results = { symbol, exchange };
+
+    // Step 1: Set margin mode FIRST (must be done before leverage on some exchanges)
+    if (margin_mode) {
+      const mode = margin_mode.toLowerCase();
+      if (!['cross', 'isolated'].includes(mode)) throw new Error('margin_mode must be "cross" or "isolated"');
+      try {
+        const modeParams = exchange === 'okx' && leverage ? { lever: String(leverage) } : {};
+
+        // OKX isolated: try hedge mode first, fallback to one-way mode
+        if (exchange === 'okx' && mode === 'isolated') {
+          let hedgeModeSuccess = true;
+          const modeResults = [];
+          for (const ps of ['long', 'short']) {
+            try {
+              modeResults.push(await ex.setMarginMode(mode, symbol, { ...modeParams, posSide: ps }));
+            } catch (e) {
+              const m = e.message || String(e);
+              if (m.includes('already') || m.includes('No need') || m.includes('margin mode is not modified')) {
+                modeResults.push({ posSide: ps, unchanged: true });
+              } else if (m.includes('posSide') || m.includes('51000')) {
+                hedgeModeSuccess = false;
+                break;
+              } else {
+                modeResults.push({ posSide: ps, error: m });
+              }
+            }
+          }
+          if (hedgeModeSuccess) {
+            results.margin_mode = { success: true, mode, details: modeResults };
+          } else {
+            // Fallback: one-way position mode
+            try {
+              const res = await ex.setMarginMode(mode, symbol, modeParams);
+              results.margin_mode = { success: true, mode, response: res };
+            } catch (e2) {
+              const m2 = e2.message || String(e2);
+              if (m2.includes('already') || m2.includes('No need') || m2.includes('margin mode is not modified')) {
+                results.margin_mode = { success: true, mode, message: `已经是 ${mode} 模式` };
+              } else {
+                results.margin_mode = { success: false, mode, error: m2 };
+              }
+            }
+          }
+        } else {
+          try {
+            const res = await ex.setMarginMode(mode, symbol, modeParams);
+            if (res?.code === -4046 || res?.msg?.includes('No need to change')) {
+              results.margin_mode = { success: true, mode, message: `已经是 ${mode} 模式` };
+            } else {
+              results.margin_mode = { success: true, mode, response: res };
+            }
+          } catch (e) {
+            const m = e.message || String(e);
+            if (m.includes('-4046') || m.includes('No need') || m.includes('already') || m.includes('margin mode is not modified')) {
+              results.margin_mode = { success: true, mode, message: `已经是 ${mode} 模式` };
+            } else {
+              results.margin_mode = { success: false, mode, error: m };
+            }
+          }
+        }
+      } catch (e) {
+        results.margin_mode = { success: false, error: e.message || String(e) };
+      }
+    }
+
+    // Step 2: Set leverage
+    if (leverage) {
+      try {
+        const res = await ex.setLeverage(Number(leverage), symbol);
+        results.leverage = { success: true, leverage: Number(leverage), response: res };
+      } catch (e) {
+        const m = e.message || String(e);
+        if (m.includes('already') || m.includes('No need') || m.includes('not modified')) {
+          results.leverage = { success: true, leverage: Number(leverage), message: `已经是 ${leverage}x 杠杆` };
+        } else {
+          results.leverage = { success: false, leverage: Number(leverage), error: m };
+        }
+      }
+    }
+
+    results.success = (!results.margin_mode || results.margin_mode.success) && (!results.leverage || results.leverage.success);
+    return results;
   },
   transfer: async ({ exchange, code, amount, from_account, to_account }) => {
     // OKX unified account: no transfer needed
