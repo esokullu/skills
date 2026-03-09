@@ -1,0 +1,11 @@
+{
+  "owner": "numpy0001",
+  "slug": "okx",
+  "displayName": "okx-cex-market",
+  "latest": {
+    "version": "1.1.8",
+    "publishedAt": 1773026796172,
+    "commit": null
+  },
+  "history": []
+}
