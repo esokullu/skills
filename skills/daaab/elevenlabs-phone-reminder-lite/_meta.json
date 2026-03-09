@@ -3,11 +3,16 @@
   "slug": "elevenlabs-phone-reminder-lite",
   "displayName": "ElevenLabs Phone Reminder (Lite)",
   "latest": {
-    "version": "1.1.0",
-    "publishedAt": 1772296397483,
-    "commit": "https://github.com/openclaw/skills/commit/924009d9fd794a164de765b946f4ebba0a05f140"
+    "version": "1.1.1",
+    "publishedAt": 1772881842479,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.1.0",
+      "publishedAt": 1772296397483,
+      "commit": "https://github.com/openclaw/skills/commit/924009d9fd794a164de765b946f4ebba0a05f140"
+    },
     {
       "version": "1.0.0",
       "publishedAt": 1770098633141,

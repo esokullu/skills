@@ -20,8 +20,8 @@ Build an AI assistant that can **call you on the phone** with natural voice conv
 ## 📋 Prerequisites
 
 1. **ElevenLabs Account** (Creator plan or above)
-   - Sign up: https://elevenlabs.io
-   - Includes 250 minutes/month of Conversational AI
+   - [**👉 Sign up for ElevenLabs**](https://try.elevenlabs.io/clawhub) — free tier includes 10,000 characters/month!
+   - Paid plans include 250+ minutes/month of Conversational AI
 
 2. **Twilio Account**
    - Sign up: https://twilio.com
@@ -115,6 +115,8 @@ curl -X POST "https://api.elevenlabs.io/v1/convai/twilio/outbound-call" \
 ```
 
 ## 💰 Cost Estimate
+
+> 💡 **Tip**: [Start free with ElevenLabs](https://try.elevenlabs.io/clawhub) to test voice quality before upgrading!
 
 | Item | Cost |
 |------|------|
