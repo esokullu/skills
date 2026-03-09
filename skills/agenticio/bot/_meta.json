@@ -1,0 +1,11 @@
+{
+  "owner": "agenticio",
+  "slug": "bot",
+  "displayName": "Bot",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1772996307420,
+    "commit": null
+  },
+  "history": []
+}
