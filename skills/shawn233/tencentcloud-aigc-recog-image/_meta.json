@@ -1,0 +1,11 @@
+{
+  "owner": "shawn233",
+  "slug": "tencentcloud-aigc-recog-image",
+  "displayName": "TencentCloud Image AIGC Detection",
+  "latest": {
+    "version": "1.0.3",
+    "publishedAt": 1772980542724,
+    "commit": null
+  },
+  "history": []
+}
