@@ -1,6 +1,6 @@
 {
   "name": "beauty-generation-free",
-  "version": "1.2.29",
+  "version": "1.2.30",
   "description": "FREE AI image generation service for creating professional portrait images with 140+ nationalities, diverse styles, and comprehensive customization. Fast generation (3-5 seconds). Uses curl for simple HTTP requests.",
   "main": "SKILL.md",
   "author": "DiversityFaces.org",

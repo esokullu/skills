@@ -3,11 +3,16 @@
   "slug": "beauty-generation-api",
   "displayName": "beauty-generation-api",
   "latest": {
-    "version": "1.2.29",
-    "publishedAt": 1772636128254,
-    "commit": "https://github.com/openclaw/skills/commit/13ca07479b23fb34aa2b3bc509c0d0a3e0033024"
+    "version": "1.2.30",
+    "publishedAt": 1772779162982,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.2.29",
+      "publishedAt": 1772636128254,
+      "commit": "https://github.com/openclaw/skills/commit/13ca07479b23fb34aa2b3bc509c0d0a3e0033024"
+    },
     {
       "version": "1.2.28",
       "publishedAt": 1771737541401,
