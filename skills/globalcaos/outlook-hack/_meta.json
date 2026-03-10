@@ -3,11 +3,16 @@
   "slug": "outlook-hack",
   "displayName": "Outlook Hack",
   "latest": {
-    "version": "5.0.0",
-    "publishedAt": 1771959955521,
-    "commit": "https://github.com/openclaw/skills/commit/4189d6cbc539b424a1088be22774482ef9a2b83d"
+    "version": "1.0.1",
+    "publishedAt": 1772974529849,
+    "commit": null
   },
   "history": [
+    {
+      "version": "5.0.0",
+      "publishedAt": 1771959955521,
+      "commit": "https://github.com/openclaw/skills/commit/4189d6cbc539b424a1088be22774482ef9a2b83d"
+    },
     {
       "version": "3.0.0",
       "publishedAt": 1771795386011,

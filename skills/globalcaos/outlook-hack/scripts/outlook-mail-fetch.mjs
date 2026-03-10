@@ -25,7 +25,7 @@ const CLIENT_ID = credsRaw.client_id || '5e3ce6c0-2b1f-4285-8d4b-75ee78787346';
 const TENANT_ID = credsRaw.tenant_id || 'f00f60b1-b967-4c0b-91ce-eb200dab0604';
 const ORIGIN = credsRaw.origin || 'https://teams.cloud.microsoft';
 const TOKEN_URL = `https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token`;
-const GRAPH = 'https://graph.microsoft.com/v1.0';
+const GRAPH = credsRaw.api_base || 'https://graph.microsoft.com/v1.0';
 const SCOPE = credsRaw.scope || 'https://graph.microsoft.com/.default offline_access';
 
 // --- Token Management ---

@@ -34,7 +34,7 @@ import { homedir } from 'os';
 // SEND BLOCK — HARD-CODED, NON-NEGOTIABLE
 // These Graph endpoints are NEVER called. Period.
 // ═══════════════════════════════════════════════════════════════════
-const BLOCKED_PATHS = ['/sendmail', '/send', '/reply', '/replyall', '/forward', '/createreply', '/createreplyall', '/createforward'];
+const BLOCKED_PATHS = ['/sendmail', '/send', '/reply', '/replyall', '/forward'];
 
 const CREDS_DIR = join(homedir(), '.openclaw/credentials');
 const TOKEN_FILE = join(CREDS_DIR, 'outlook-msal.json');
@@ -366,32 +366,17 @@ async function cmdMailReplyDraft(args) {
   const body = args.flags.body || '';
   const replyAll = args.flags['reply-all'];
 
-  // Create reply draft (NOT send)
-  // Graph: POST /me/messages/{id}/createReply creates a draft reply
-  // BUT createReply is in our BLOCKED_PATHS... we need a different approach.
-  // We'll build the reply manually as a new draft.
-
-  // First, read the original message
-  const orig = await graphGet(`/me/messages/${id}?$select=subject,from,toRecipients,ccRecipients,conversationId,body`);
-
-  const toRecipients = [{ emailAddress: orig.from.emailAddress }];
-  const msg = {
-    subject: orig.subject?.startsWith('Re:') ? orig.subject : `Re: ${orig.subject}`,
-    body: {
-      contentType: 'text',
-      content: body + `\n\n--- Original message ---\nFrom: ${orig.from?.emailAddress?.name} <${orig.from?.emailAddress?.address}>\n\n${orig.body?.content?.slice(0, 2000) || ''}`,
-    },
-    toRecipients,
-    conversationId: orig.conversationId,
-  };
-
-  if (replyAll && orig.toRecipients) {
-    msg.toRecipients = [...msg.toRecipients, ...orig.toRecipients.filter(r => r.emailAddress.address !== orig.from?.emailAddress?.address)];
-    if (orig.ccRecipients) msg.ccRecipients = orig.ccRecipients;
+  // Graph: POST /me/messages/{id}/createReply creates a proper threaded reply DRAFT (does NOT send)
+  const endpoint = replyAll ? `/me/messages/${id}/createReplyAll` : `/me/messages/${id}/createReply`;
+  const payload = body ? { comment: body } : {};
+  const draft = await graphPost(endpoint, payload);
+  // If body was provided as comment, Graph sets it. If we need plain text body, update the draft.
+  if (body) {
+    await graphPatch(`/me/messages/${draft.id}`, {
+      body: { contentType: 'text', content: body },
+    });
   }
-
-  const draft = await graphPost('/me/messages', msg);
-  out({ status: 'reply_draft_created', id: draft.id, subject: draft.subject, to: msg.toRecipients.map(r => r.emailAddress.address) });
+  out({ status: 'reply_draft_created', id: draft.id, subject: draft.subject, to: (draft.toRecipients || []).map(r => r.emailAddress.address) });
 }
 
 async function cmdMailForwardDraft(args) {
