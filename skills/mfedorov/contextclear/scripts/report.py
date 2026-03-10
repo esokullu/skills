@@ -94,6 +94,14 @@ def report(agent_id: str, api_key: str, api_url: str, metrics: dict) -> dict:
     if "task_switches" in metrics:
         payload["taskSwitches"] = metrics["task_switches"]
     
+    # Session timeline
+    if "session_id" in metrics:
+        payload["sessionId"] = metrics["session_id"]
+    if "turn_number" in metrics:
+        payload["turnNumber"] = metrics["turn_number"]
+    if "task_category" in metrics:
+        payload["taskCategory"] = metrics["task_category"]
+    
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url,
@@ -166,6 +174,11 @@ def main():
     parser.add_argument("--session-turns", type=int, help="Conversation depth (turn count)")
     parser.add_argument("--task-switches", type=int, help="Topic/file context switches")
     
+    # Session timeline
+    parser.add_argument("--session-id", type=str, help="Session identifier for timeline tracking")
+    parser.add_argument("--turn-number", type=int, help="Turn number within session")
+    parser.add_argument("--task-category", type=str, help="Task type: coding, email, search, chat")
+    
     args = parser.parse_args()
     
     # Registration mode
@@ -210,6 +223,9 @@ def main():
     if args.compilation_errors is not None: metrics["compilation_errors"] = args.compilation_errors
     if args.session_turns is not None: metrics["session_turns"] = args.session_turns
     if args.task_switches is not None: metrics["task_switches"] = args.task_switches
+    if args.session_id is not None: metrics["session_id"] = args.session_id
+    if args.turn_number is not None: metrics["turn_number"] = args.turn_number
+    if args.task_category is not None: metrics["task_category"] = args.task_category
     
     report(args.agent_id, args.api_key, args.api_url, metrics)
 
