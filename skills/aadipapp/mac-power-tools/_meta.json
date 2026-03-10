@@ -3,11 +3,16 @@
   "slug": "mac-power-tools",
   "displayName": "MacPowerTools",
   "latest": {
-    "version": "1.0.7",
-    "publishedAt": 1772800860024,
-    "commit": "https://github.com/openclaw/skills/commit/e68cade43149e8327a81ff73f25f034a1c11a7e5"
+    "version": "1.0.8",
+    "publishedAt": 1773039790502,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.7",
+      "publishedAt": 1772800860024,
+      "commit": "https://github.com/openclaw/skills/commit/e68cade43149e8327a81ff73f25f034a1c11a7e5"
+    },
     {
       "version": "1.0.6",
       "publishedAt": 1772436332196,
