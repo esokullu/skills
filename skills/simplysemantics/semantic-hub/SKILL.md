@@ -1,7 +1,7 @@
 ---
 name: semantic-hub
 version: 1.0.0
-description: Collaborative task and project management for Human + AI Agent teamwork. Organize work on visual boards with drag-and-drop columns, table views, and calendar views. Agents can list boards, create and update tasks, add comments, filter work items, and view history on boards they have been granted access to. Requires a Semantic Hub agent API key for authentication.
+description: Collaborative task and project management for Human + AI Agent teamwork. Organize work on visual boards with drag-and-drop columns, table views, and calendar views. Agents can list boards, create and update tasks, add comments, upload and attach files, filter work items, and view history on boards they have been granted access to. Requires a Semantic Hub agent API key for authentication.
 tags: ["kanban", "boards", "cards", "tasks", "project-management", "collaboration", "ai-agents", "mcp-compatible", "saas-component"]
 homepage: https://www.simplysemantics.com/semantic-hub.html
 author: Simply Semantics (@simplysemantics)
@@ -25,7 +25,7 @@ metadata:
 # Semantic Hub
 
 **Quick summary**
-Collaborative task and project management for Human + AI Agent teamwork. Organize your work on visual boards (Kanban) with drag-and-drop columns (like To Do, Doing, Done), view tasks in a table layout, or plan on a calendar — whatever works best for you. AI agents interact with shared boards via REST API — they can list boards, create and update tasks, add comments, filter and search work items, and view activity history. Agents operate under role-based access control as scoped contributor-level team members.
+Collaborative task and project management for Human + AI Agent teamwork. Organize your work on visual boards (Kanban) with drag-and-drop columns (like To Do, Doing, Done), view tasks in a table layout, or plan on a calendar — whatever works best for you. AI agents interact with shared boards via REST API — they can list boards, create and update tasks, add comments, upload files and attach them to cards or comments, filter and search work items, and view activity history. Agents operate under role-based access control as scoped contributor-level team members.
 
 Board owners create boards in the dashboard, then generate per-agent API keys and grant agents access to specific boards. Agents cannot delete cards, manage settings, or modify members.
 
@@ -49,6 +49,8 @@ Activate **Semantic Hub** when the user or agent:
 - Wants to check the status of cards, filter by priority/status/assignee, or list tasks.
 - Asks to "add a card", "create a task", "create a meeting", "create an idea", "update the status", "move to done", "what's on my board", "what's on our agenda".
 - Needs to add a comment or view comments on a card.
+- Wants to upload a file or attach a file/URL to a card or comment.
+- Asks to "attach this file", "upload a screenshot", "add this link to the card".
 - Wants to see activity history for a card.
 - Needs to list board members or check who is assigned to tasks.
 - Wants to filter cards (e.g. "show me all high priority tasks", "what's assigned to me").
@@ -323,8 +325,10 @@ Response:
 [
   {
     "id": "att-001",
+    "card_id": "CARD-A1B2C3D4",
+    "comment_id": null,
     "filename": "screenshot.png",
-    "url": "https://example.com/screenshot.png",
+    "url": "https://dashboard.simplysemantics.com/hub/uploads/abc123.png",
     "size": 45200,
     "uploaded_by": "dev@example.com",
     "uploaded_at": "2026-03-03T11:00:00.000Z"
@@ -332,7 +336,134 @@ Response:
 ]
 ```
 
-### 11. List board members
+### 11. Upload a file
+
+Upload a file to get a hosted URL, then attach it to a card or comment. File uploads are subject to per-tier limits on file size and total upload count (URL-based attachments are not limited).
+
+**POST** `https://dashboard.simplysemantics.com/hub/upload`
+
+Headers:
+```text
+x-api-key: ${SEMANTIC_HUB_API_KEY}
+Content-Type: multipart/form-data
+```
+
+Body (multipart form):
+- `file` — the file to upload
+
+Response:
+```json
+{
+  "filename": "screenshot.png",
+  "url": "https://dashboard.simplysemantics.com/hub/uploads/abc123.png",
+  "size": 45200
+}
+```
+
+Upload limits by tier:
+- **Free**: 2 MB per file, 10 uploads total
+- **Pro**: 10 MB per file, 100 uploads total
+- **Enterprise**: 50 MB per file, unlimited uploads
+
+Errors:
+- `413` — File too large for your tier
+- `429` — Upload count limit reached for your tier
+
+### 12. Attach a file or URL to a card
+
+Link an attachment to a card. Use the URL from the upload endpoint, or provide any external URL.
+
+**POST** `https://dashboard.simplysemantics.com/hub/cards/:cardId/attachments`
+
+Headers:
+```text
+x-api-key: ${SEMANTIC_HUB_API_KEY}
+Content-Type: application/json
+```
+
+Body:
+```json
+{
+  "filename": "screenshot.png",
+  "url": "https://dashboard.simplysemantics.com/hub/uploads/abc123.png",
+  "size": 45200
+}
+```
+
+> `filename` and `url` are required. `size` is optional (bytes).
+
+Response:
+```json
+{
+  "id": "att-001",
+  "card_id": "CARD-A1B2C3D4",
+  "filename": "screenshot.png",
+  "url": "https://dashboard.simplysemantics.com/hub/uploads/abc123.png",
+  "size": 45200,
+  "uploaded_by": "agent-456",
+  "uploaded_at": "2026-03-06T10:00:00.000Z"
+}
+```
+
+### 13. Attach a file or URL to a comment
+
+Link an attachment to a comment. Attachments must be added at the same time as the comment — first create the comment, then attach.
+
+**POST** `https://dashboard.simplysemantics.com/hub/comments/:commentId/attachments`
+
+Headers:
+```text
+x-api-key: ${SEMANTIC_HUB_API_KEY}
+Content-Type: application/json
+```
+
+Body:
+```json
+{
+  "filename": "debug-log.txt",
+  "url": "https://dashboard.simplysemantics.com/hub/uploads/def456.txt",
+  "size": 1200
+}
+```
+
+Response:
+```json
+{
+  "id": "att-002",
+  "comment_id": "comment-789",
+  "filename": "debug-log.txt",
+  "url": "https://dashboard.simplysemantics.com/hub/uploads/def456.txt",
+  "size": 1200,
+  "uploaded_by": "agent-456",
+  "uploaded_at": "2026-03-06T10:05:00.000Z"
+}
+```
+
+### 14. Get comment attachments
+
+**GET** `https://dashboard.simplysemantics.com/hub/comments/:commentId/attachments`
+
+Headers:
+```text
+x-api-key: ${SEMANTIC_HUB_API_KEY}
+```
+
+Response:
+```json
+[
+  {
+    "id": "att-002",
+    "comment_id": "comment-789",
+    "filename": "debug-log.txt",
+    "url": "https://dashboard.simplysemantics.com/hub/uploads/def456.txt",
+    "size": 1200,
+    "uploaded_by": "agent-456",
+    "uploaded_at": "2026-03-06T10:05:00.000Z"
+  }
+]
+```
+
+### 15. List board members
 
 **GET** `https://dashboard.simplysemantics.com/hub/boards/:boardId/users`
 
@@ -349,11 +480,13 @@ Response:
 ]
 ```
 
-### 12. Edge cases
+### 16. Edge cases
 
 - 401/403 → "Missing or invalid SEMANTIC_HUB_API_KEY. Set the env var to use this skill."
 - 403 with `upgrade_url` → "Tier limit reached — upgrade your plan."
 - 404 → "Card or board not found, or agent does not have access."
+- 413 → "File too large for your plan tier."
+- 429 → "Upload limit reached for your plan tier."
 - 500 → "Service temporarily unavailable. Try again shortly."
 
 ## Output format

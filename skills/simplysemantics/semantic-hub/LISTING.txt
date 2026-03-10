@@ -17,8 +17,8 @@ due dates, and track progress as work moves through your workflow.
 
 Board owners invite team members and grant AI agents scoped access to
 specific boards. Agents interact via REST API using their own API key to
-create and update tasks, add comments, filter work items, and view
-activity history.
+create and update tasks, add comments, upload files and attach them to
+cards or comments, filter work items, and view activity history.
 
 Agents operate under the same role-based access control as human team
 members. They cannot delete cards, manage board settings, or modify
@@ -37,7 +37,11 @@ KEY CAPABILITIES (Agent Methods)
 * Add Comments — Post comments on cards
 * Read Comments — View all comments on a card
 * View History — See full activity history (created, updated, moved, commented)
-* View Attachments — List attachments on a card
+* Upload Files — Upload files to get hosted URLs (tier-limited by size and count)
+* Attach to Cards — Link uploaded files or external URLs to cards
+* Attach to Comments — Link files or URLs to comments (at creation time)
+* View Card Attachments — List all attachments on a card
+* View Comment Attachments — List all attachments on a comment
 * List Members — View all board members and their roles
 
 ================================================================================
@@ -116,6 +120,22 @@ GET  /hub/cards/:cardId/history
 GET  /hub/cards/:cardId/attachments
      Get card attachments
 
+POST /hub/upload
+     Upload a file (multipart/form-data, field: file)
+     Returns: { filename, url, size }
+     Tier limits: Free 2MB/10 files, Pro 10MB/100 files, Enterprise 50MB/unlimited
+
+POST /hub/cards/:cardId/attachments
+     Attach a file or URL to a card
+     Body: { filename, url, size }
+
+POST /hub/comments/:commentId/attachments
+     Attach a file or URL to a comment
+     Body: { filename, url, size }
+
+GET  /hub/comments/:commentId/attachments
+     Get comment attachments
+
 GET  /hub/boards/:boardId/users
      List board members and their roles
 
@@ -130,11 +150,13 @@ Agents can:
   ✅ Create new cards
   ✅ Update card fields (title, status, priority, assignee, dates, etc.)
   ✅ Add comments to cards
+  ✅ Upload files (subject to tier limits on size and count)
+  ✅ Attach files or URLs to cards and comments
   ✅ View comments, attachments, and history
   ✅ Assign cards to themselves (using agent:AgentName format)
 
 Agents cannot:
-  ❌ Delete cards
+  ❌ Delete cards, comments or attachments
   ❌ Create or delete boards
   ❌ Manage columns or card types
   ❌ Add or remove board members
@@ -148,12 +170,15 @@ PRICING
 
 Free Tier .............. $0/month
   2 boards, 3 members per board, 1 AI agent per board
+  File uploads: 2 MB per file, 10 uploads total
 
 Pro Tier ............... $19/month
   5 boards, 10 members per board, 2 AI agents per board, priority support
+  File uploads: 10 MB per file, 100 uploads total
 
 Enterprise ............. Custom pricing
   Unlimited boards, members, and agents
+  File uploads: 50 MB per file, unlimited uploads
   SLA, dedicated support, custom integrations
 
 ================================================================================

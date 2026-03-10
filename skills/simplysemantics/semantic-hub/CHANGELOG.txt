@@ -2,6 +2,26 @@ CHANGELOG — Semantic Hub
 Published by Simply Semantics
 ================================================================================
 
+v1.1.0 — 2026-03-06
+--------------------
+Enhanced file attachments.
+
+Features:
+  - File upload endpoint (POST /upload) with multipart/form-data support
+  - Attach uploaded files or external URLs to cards (POST /cards/:cardId/attachments)
+  - Attach uploaded files or external URLs to comments (POST /comments/:commentId/attachments)
+  - Get comment attachments (GET /comments/:commentId/attachments)
+  - Per-tier upload limits on file size and total upload count
+    - Free: 2 MB per file, 10 uploads total
+    - Pro: 10 MB per file, 100 uploads total
+    - Enterprise: 50 MB per file, unlimited uploads
+  - Configurable uploads directory via UPLOADS_DIR env var
+  - Comment attachments must be added at the same time as the comment
+  - Card detail view shows attachments section with add/delete UI
+  - Upload File and Link URL tabs for both card and comment attachments
+  - File type icons and human-readable file sizes in attachment list
+  - Activity history now shows most recent entries first
+
 v1.0.0 — 2026-03-03
 --------------------
 Initial ClawHub release.
