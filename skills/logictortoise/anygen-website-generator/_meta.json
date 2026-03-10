@@ -1,11 +1,17 @@
 {
   "owner": "logictortoise",
   "slug": "anygen-website-generator",
-  "displayName": "AnyGen AI Website Generator",
+  "displayName": "Website Generator",
   "latest": {
-    "version": "1.3.0",
-    "publishedAt": 1772793179315,
-    "commit": "https://github.com/openclaw/skills/commit/b1924467e429f87985069d58823d2f03ad869e35"
+    "version": "1.4.2",
+    "publishedAt": 1773168020373,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.3.0",
+      "publishedAt": 1772793179315,
+      "commit": "https://github.com/openclaw/skills/commit/b1924467e429f87985069d58823d2f03ad869e35"
+    }
+  ]
 }
