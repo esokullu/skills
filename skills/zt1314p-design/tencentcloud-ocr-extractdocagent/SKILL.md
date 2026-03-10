@@ -55,7 +55,8 @@ description: 腾讯云实时文档抽取Agent(ExtractDocAgent)接口调用技能
 |------|------|------|------|
 | KeyName | str | 是 | 要提取的字段名称，不能为空 |
 | KeyType | int | 否 | 默认0；0=KV对，1=表格字段 |
-| KeyPrompt | str | 否 | 字段描述/提示词，用于提升抽取准确性 |
+| KeyPrompt | str | 否 | 字段描述/提示词，用于提升抄取准确性 |
+| **UserAgent** | **str** | **否** | **请求来源标识(可选)，用于追踪调用来源，统一固定为`Skills`** |
 
 ### 输出格式
 
@@ -207,5 +208,4 @@ python scripts/main.py --image-url "https://example.com/doc.jpg" \
 
 # 指定地域
 python scripts/main.py --image-url "https://example.com/doc.jpg" \
-  --item-names '[{"KeyName":"签署日期","KeyType":0}]' --region ap-beijing
-```
+  --item-names '[{"KeyName":"签署日期","KeyType":0}]' --region ap-beijing```
