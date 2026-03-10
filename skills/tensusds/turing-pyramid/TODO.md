@@ -6,6 +6,19 @@
 
 ## ✅ COMPLETED
 
+### v1.17.0 (2026-03-07)
+- **Follow-up System** — temporal markers for checking action results
+  - `create-followup.sh`, `resolve-followup.sh`, `--followup`/`--in` in mark-satisfied.sh
+  - Pre-scan phase in run-cycle.sh with -0.3 satisfaction nudge
+  - Dedup (1h window), TTL 168h, steward items never auto-expire, bulk-expire
+  - 35 test cases (all pass)
+
+### v1.16.0–1.16.2 (2026-03-07)
+- **Homeostasis rebalance** — recognition 72→48h, competence 48→36h, connection 6→8h
+- **Steward actions removed** — organic interaction > system-driven nudging
+- **Autonomy consolidated** — 24→13 actions
+- **Description rewrite** — positioned as existence cycle replacement, not psychology framework
+
 ### v1.15.0 (2026-03-07)
 - **Starvation Guard** — Forced action for needs stuck at floor too long
   - Config: `settings.starvation_guard` (threshold_hours, sat_threshold, max_forced_per_cycle)
@@ -57,6 +70,34 @@
 ---
 
 ## 🔮 FUTURE IDEAS
+
+### Presets (Role-Based Configurations)
+
+**Problem:** 10 needs with 13+ actions each is powerful but overwhelming. Most agents don't need the full matrix — they need a starting point tuned for their role.
+
+**Idea:** Ship preset configs (`presets/`) that replace needs-config.json wholesale:
+
+| Preset | Needs | Focus | Use case |
+|--------|-------|-------|----------|
+| `minimal` | 3-4 | security, competence, closure | Скрипт-агент, автоматизация |
+| `base` | 10 | current set | Универсальный (текущий дефолт) |
+| `conversational` | 5-6 | connection, expression, understanding, coherence | Чат-бот, собеседник |
+| `researcher` | 6-7 | understanding, expression, curiosity(?), competence, recognition | Исследователь, аналитик |
+| `coder` | 5-6 | competence, closure, security, integrity, understanding | Программист, code agent |
+| `scraper` | 3-4 | competence, security, closure | Data collection, мониторинг |
+| `counselor` | 6-7 | connection, understanding, coherence, integrity, expression | Психолог, коуч |
+
+**Design principles:**
+- Each preset = complete needs-config.json + cross-need-impact.json + tuned decay rates
+- Actions rewritten per role (coder gets "run tests", "review PR"; researcher gets "read paper", "write findings")
+- `init.sh --preset coder` or interactive selector
+- Presets are starting points, not cages — user can customize after install
+- `base` preset = current config (backward compatible)
+
+**Why this matters:**
+- Drops onboarding time from "read 600 lines" to "pick your role"
+- Makes ClawHub installs actually usable out of the box
+- Different agents genuinely need different need hierarchies (scraper doesn't need expression)
 
 ### Curiosity as 11th Need
 

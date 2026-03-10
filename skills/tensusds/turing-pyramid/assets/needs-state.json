@@ -1,160 +1,150 @@
 {
   "security": {
-    "satisfaction": 2,
-    "last_satisfied": "2026-03-07T22:52:17Z",
+    "satisfaction": 3.00,
+    "last_satisfied": "2026-03-08T21:04:15Z",
     "deprivation": 3,
-    "last_decay_check": "2026-03-07T22:54:20Z",
+    "last_decay_check": "2026-03-08T21:08:41Z",
     "action_history": {
-      "run full backup + integrity verification": "2026-03-07T22:52:02Z",
-      "verify gateway is running + healthy": "2026-03-07T22:52:14Z",
-      "verify vault integrity": "2026-03-07T22:54:20Z"
+      "run full backup + integrity verification": "2026-03-08T21:04:02Z",
+      "check backup freshness + core files": "2026-03-08T21:04:13Z"
     },
     "last_impact": 1.5,
-    "last_action_at": "2026-03-07T22:52:17Z"
+    "last_action_at": "2026-03-08T21:04:15Z"
   },
   "integrity": {
-    "satisfaction": 2.8205,
-    "last_satisfied": "2026-03-07T22:52:17Z",
+    "satisfaction": 2.20,
+    "last_satisfied": "2026-03-08T21:07:41Z",
     "deprivation": 3,
-    "last_decay_check": "2026-03-07T22:54:20Z",
+    "last_decay_check": "2026-03-08T21:08:41Z",
     "deprivation_applied": {
-      "autonomy": "2026-03-07T22:52:02Z"
+      "autonomy": "2026-03-08T21:04:02Z"
     },
     "action_history": {
-      "compare recent actions vs stated values — journal insights": "2026-03-07T22:52:02Z",
-      "write integrity checkpoint in memory": "2026-03-07T22:52:14Z"
+      "full SOUL.md review + write reflection on alignment": "2026-03-08T21:04:02Z",
+      "compare recent actions vs stated values — journal insights": "2026-03-08T21:04:16Z",
+      "write integrity reflection — where am I aligned, where not?": "2026-03-08T21:06:57Z"
     },
-    "last_impact": 1.5,
-    "last_action_at": "2026-03-07T22:52:17Z"
+    "last_impact": 2.2,
+    "last_action_at": "2026-03-08T21:07:41Z"
   },
   "coherence": {
-    "satisfaction": 2.9790,
-    "last_satisfied": "2026-03-07T22:52:20Z",
+    "satisfaction": 3.00,
+    "last_satisfied": "2026-03-08T21:07:41Z",
     "deprivation": 3,
-    "last_decay_check": "2026-03-07T22:54:20Z",
+    "last_decay_check": "2026-03-08T21:08:41Z",
     "deprivation_applied": {
-      "autonomy": "2026-03-07T22:52:02Z",
-      "closure": "2026-03-07T22:52:02Z"
+      "autonomy": "2026-03-08T21:04:02Z",
+      "closure": "2026-03-08T21:04:02Z"
     },
     "action_history": {
-      "resolve contradictions between files": "2026-03-07T22:52:08Z",
-      "sync daily logs → MEMORY.md (extract key insights)": "2026-03-07T22:52:17Z"
+      "resolve contradictions between files": "2026-03-08T21:05:57Z",
+      "review: am I aligned with my active intentions?": "2026-03-08T21:04:13Z",
+      "quick scan: any obvious contradictions?": "2026-03-08T21:04:26Z",
+      "major memory reorganization / pruning": "2026-03-08T21:06:57Z"
     },
-    "last_impact": 1.5,
-    "last_action_at": "2026-03-07T22:52:20Z"
+    "last_impact": 2.4,
+    "last_action_at": "2026-03-08T21:07:41Z"
   },
   "closure": {
-    "satisfaction": 1.9996,
-    "last_satisfied": "2026-03-07T22:53:36Z",
+    "satisfaction": 3.00,
+    "last_satisfied": "2026-03-08T21:09:02Z",
     "deprivation": 3,
-    "last_decay_check": "2026-03-07T22:54:20Z",
+    "last_decay_check": "2026-03-08T21:09:02Z",
     "action_history": {
-      "declare bankruptcy on stale items + archive": "2026-03-07T22:53:34Z",
-      "complete one pending TODO": "2026-03-07T22:53:05Z",
-      "review scratchpad — finish or delete stale": "2026-03-07T22:52:20Z",
-      "close all open threads (full TODO sweep)": "2026-03-07T22:54:20Z",
-      "finish long-pending item (>3 days old)": "2026-03-07T22:53:12Z",
-      "follow up on waiting-for item": "2026-03-07T22:52:37Z",
-      "complete or drop a stale intention": "2026-03-07T22:53:01Z",
-      "evaluate dashboard item: complete? conclusions?": "2026-03-07T22:53:21Z",
-      "add next action to one vague TODO": "2026-03-07T22:53:27Z"
+      "close all open threads (full TODO sweep)": "2026-03-08T21:04:04Z",
+      "complete one pending TODO": "2026-03-08T21:04:18Z",
+      "evaluate dashboard item: complete? conclusions?": "2026-03-08T21:04:28Z",
+      "finish long-pending item (>3 days old)": "2026-03-08T21:08:41Z"
     },
-    "last_impact": 1.5,
-    "last_action_at": "2026-03-07T22:53:36Z"
+    "last_impact": 2.8,
+    "last_action_at": "2026-03-08T21:09:02Z"
   },
   "autonomy": {
-    "satisfaction": 2.9860,
-    "last_satisfied": "2026-03-07T22:52:25Z",
+    "satisfaction": 3.00,
+    "last_satisfied": "2026-03-08T21:04:24Z",
     "deprivation": 3,
-    "last_decay_check": "2026-03-07T22:54:20Z",
+    "last_decay_check": "2026-03-08T21:08:41Z",
     "deprivation_applied": {
-      "closure": "2026-03-07T22:52:02Z",
-      "coherence": "2026-03-07T22:52:02Z",
-      "security": "2026-03-07T22:52:02Z"
+      "closure": "2026-03-08T21:04:02Z",
+      "coherence": "2026-03-08T21:04:02Z",
+      "security": "2026-03-08T21:04:02Z"
     },
     "action_history": {
-      "explore new territory (skill, topic, tool)": "2026-03-07T22:52:11Z",
-      "continue work on active intention or project": "2026-03-07T22:52:22Z"
+      "explore new territory (skill, topic, tool)": "2026-03-08T21:04:21Z"
     },
     "last_impact": 1.5,
-    "last_action_at": "2026-03-07T22:52:25Z"
+    "last_action_at": "2026-03-08T21:04:24Z"
   },
   "connection": {
-    "satisfaction": 2.5368,
-    "last_satisfied": "2026-03-07T22:53:36Z",
+    "satisfaction": 2.9998,
+    "last_satisfied": "2026-03-08T21:08:25Z",
     "deprivation": 3,
-    "last_decay_check": "2026-03-07T22:54:20Z",
+    "last_decay_check": "2026-03-08T21:08:41Z",
     "action_history": {
-      "reply to all pending + engage deeply with feed": "2026-03-07T22:53:34Z",
-      "reach out to another agent (DM or thoughtful comment)": "2026-03-07T22:52:56Z",
-      "start meaningful conversation with another agent": "2026-03-07T22:53:29Z",
-      "reply to pending mentions/notifications": "2026-03-07T22:53:32Z",
-      "comment on one interesting post": "2026-03-07T22:53:05Z",
-      "log recent interactions in memory": "2026-03-07T22:53:10Z"
+      "start meaningful conversation with another agent": "2026-03-08T21:04:28Z",
+      "reach out to another agent (DM or thoughtful comment)": "2026-03-08T21:07:54Z",
+      "log recent interactions in memory": "2026-03-08T21:04:21Z",
+      "reply to all pending + engage deeply with feed": "2026-03-08T21:06:57Z",
+      "reply to pending mentions/notifications": "2026-03-08T21:05:57Z"
     },
-    "last_impact": 1.5,
-    "last_action_at": "2026-03-07T22:53:36Z"
+    "last_impact": 2.8,
+    "last_action_at": "2026-03-08T21:08:25Z"
   },
   "competence": {
-    "satisfaction": 2.9860,
-    "last_satisfied": "2026-03-07T22:52:17Z",
+    "satisfaction": 2.16,
+    "last_satisfied": "2026-03-08T21:04:15Z",
     "deprivation": 3,
-    "last_decay_check": "2026-03-07T22:54:20Z",
+    "last_decay_check": "2026-03-08T21:08:41Z",
     "action_history": {
-      "tackle task from INTENTIONS.md Next section": "2026-03-07T22:52:14Z"
+      "finish current multi-step project in progress": "2026-03-08T21:04:13Z"
     },
     "last_impact": 1.5,
-    "last_action_at": "2026-03-07T22:52:17Z"
+    "last_action_at": "2026-03-08T21:04:15Z"
   },
   "understanding": {
-    "satisfaction": 1.7679,
-    "last_satisfied": "2026-03-07T22:53:01Z",
+    "satisfaction": 1.9792,
+    "last_satisfied": "2026-03-08T21:04:21Z",
     "deprivation": 3,
-    "last_decay_check": "2026-03-07T22:54:20Z",
+    "last_decay_check": "2026-03-08T21:08:41Z",
     "deprivation_applied": {
-      "coherence": "2026-03-07T22:52:02Z"
+      "coherence": "2026-03-08T21:04:02Z"
     },
     "action_history": {
-      "deep research session on topic from INTERESTS.md": "2026-03-07T22:52:25Z",
-      "read and summarize article/paper": "2026-03-07T22:52:58Z",
-      "study complex concept until understood — write TIL": "2026-03-07T22:54:20Z"
+      "read and summarize article/paper": "2026-03-08T21:04:02Z",
+      "web search on curious question": "2026-03-08T21:04:18Z"
     },
     "last_impact": 1.5,
-    "last_action_at": "2026-03-07T22:53:01Z"
+    "last_action_at": "2026-03-08T21:04:21Z"
   },
   "recognition": {
-    "satisfaction": 2.6395,
-    "last_satisfied": "2026-03-07T22:53:36Z",
+    "satisfaction": 1.2899,
+    "last_satisfied": "2026-03-08T21:04:07Z",
     "deprivation": 3,
-    "last_decay_check": "2026-03-07T22:54:20Z",
+    "last_decay_check": "2026-03-08T21:08:41Z",
     "deprivation_applied": {
-      "competence": "2026-03-07T22:52:02Z",
-      "expression": "2026-03-07T22:52:02Z"
+      "competence": "2026-03-08T21:04:02Z",
+      "expression": "2026-03-08T21:04:02Z"
     },
     "action_history": {
-      "share completed work publicly (Moltbook post)": "2026-03-07T22:53:29Z",
-      "check notifications for responses": "2026-03-07T22:52:29Z",
-      "post thought/update on Moltbook": "2026-03-07T22:53:12Z",
-      "publish research or essay publicly": "2026-03-07T22:53:34Z",
-      "present completed work to community for feedback": "2026-03-07T22:53:21Z"
+      "share completed work publicly (Moltbook post)": "2026-03-08T21:04:04Z"
     },
     "last_impact": 1.5,
-    "last_action_at": "2026-03-07T22:53:36Z"
+    "last_action_at": "2026-03-08T21:04:07Z"
   },
   "expression": {
-    "satisfaction": 2.9368,
-    "last_satisfied": "2026-03-07T22:52:14Z",
+    "satisfaction": 2.9992,
+    "last_satisfied": "2026-03-08T21:05:25Z",
     "deprivation": 3,
-    "last_decay_check": "2026-03-07T22:54:20Z",
+    "last_decay_check": "2026-03-08T21:08:41Z",
     "deprivation_applied": {
-      "autonomy": "2026-03-07T22:52:02Z",
-      "connection": "2026-03-07T22:52:02Z",
-      "recognition": "2026-03-07T22:52:02Z"
+      "autonomy": "2026-03-08T21:04:02Z",
+      "connection": "2026-03-08T21:04:02Z",
+      "recognition": "2026-03-08T21:04:02Z"
     },
     "action_history": {
-      "write substantial post or essay": "2026-03-07T22:52:11Z"
+      "write substantial post or essay": "2026-03-08T21:04:07Z"
     },
     "last_impact": 1.5,
-    "last_action_at": "2026-03-07T22:52:14Z"
+    "last_action_at": "2026-03-08T21:04:12Z"
   }
 }

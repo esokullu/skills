@@ -20,6 +20,15 @@ neg_signals=0
 scan_lines_in_file "$MEMORY_DIR/$TODAY.md" "$POS_PATTERN" "$NEG_PATTERN"
 scan_lines_in_file "$MEMORY_DIR/$YESTERDAY.md" "$POS_PATTERN" "$NEG_PATTERN"
 
+# Check research thread activity (inherited from daemon)
+THREADS_DIR="$WORKSPACE/research/threads"
+if [[ -d "$THREADS_DIR" ]]; then
+    recent_threads=$(find "$THREADS_DIR" -name "*.md" -mmin -1440 2>/dev/null | wc -l)
+    if [[ $recent_threads -gt 0 ]]; then
+        pos_signals=$((pos_signals + recent_threads))
+    fi
+fi
+
 net=$((pos_signals - neg_signals))
 
 if [[ $neg_signals -gt $pos_signals ]] && [[ $neg_signals -gt 2 ]]; then

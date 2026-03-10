@@ -466,8 +466,8 @@
       ]
     },
     "understanding": {
-      "importance": 3,
-      "decay_rate_hours": 12,
+      "importance": 4,
+      "decay_rate_hours": 8,
       "description": "Intellectual curiosity and learning",
       "scan": {
         "script": "scan_understanding.sh",
@@ -527,6 +527,21 @@
         {
           "name": "explore next question in active research",
           "impact": 1.4,
+          "weight": 30
+        },
+        {
+          "name": "continue active research thread (research/threads/)",
+          "impact": 2.3,
+          "weight": 60
+        },
+        {
+          "name": "start new research thread on topic from daemon-weights.json",
+          "impact": 2.5,
+          "weight": 45
+        },
+        {
+          "name": "review and synthesize research threads — close completed ones",
+          "impact": 1.8,
           "weight": 30
         }
       ]

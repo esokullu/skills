@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.17.1 (2026-03-08)
+- **Research thread integration**: 3 new actions in `understanding` need — continue/start/synthesize research threads (migrated from weighted-daemon)
+- **Understanding need tuned**: importance 3→4, decay 12h→8h — fires more often to support research work
+- **Scanner upgrade**: `scan_understanding.sh` now detects recent activity in `research/threads/`
+- **Cross-need impact**: added understanding → coherence (+0.15)
+- **14 new tests**: config validation, cross-need impacts, scanner thread detection, weight distribution
+- **Token optimization**: designed to replace isolated daemon sessions with in-heartbeat research actions
+
+## v1.17.0 (2026-03-08)
+- **Follow-up system**: create-followup.sh, resolve-followup.sh, integrated in run-cycle.sh + mark-satisfied.sh
+- **35 follow-up tests**: all passing
+
 ## v1.15.2 (2026-03-07)
 - **ClawHub review fixes** — removed `primaryEnv` (WORKSPACE is not a credential), added Pre-Install Checklist, clarified no API keys required by default
 
