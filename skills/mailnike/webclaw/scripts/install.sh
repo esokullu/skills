@@ -26,7 +26,7 @@ err() { echo "{\"status\":\"error\",\"message\":\"$1\"}"; exit 1; }
 
 # Source repo — HTTPS clone (no SSH key required)
 REPO_URL="https://github.com/avansaber/webclaw.git"
-RELEASE_TAG="v2.0.0"
+RELEASE_TAG="v2.1.0"
 
 # ── Phase 0: Clone full source if not present ────────────────────────────
 # The publish package is a lightweight metadata package (SKILL.md + scripts).

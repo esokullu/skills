@@ -1,13 +1,18 @@
 {
   "owner": "mailnike",
   "slug": "webclaw",
-  "displayName": "Webclaw",
+  "displayName": "WebClaw",
   "latest": {
-    "version": "2.1.0",
-    "publishedAt": 1772907789010,
-    "commit": "https://github.com/openclaw/skills/commit/4cb10e649f9c10cabfc52a29040496ff08277214"
+    "version": "2.1.2",
+    "publishedAt": 1773121988249,
+    "commit": null
   },
   "history": [
+    {
+      "version": "2.1.0",
+      "publishedAt": 1772907789010,
+      "commit": "https://github.com/openclaw/skills/commit/4cb10e649f9c10cabfc52a29040496ff08277214"
+    },
     {
       "version": "1.0.13",
       "publishedAt": 1772173341055,

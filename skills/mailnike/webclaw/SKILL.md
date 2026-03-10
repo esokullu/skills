@@ -1,6 +1,6 @@
 ---
 name: webclaw
-version: 2.0.0
+version: 2.1.0
 description: >
   Web dashboard for OpenClaw. Browser-based UI for any installed skill.
   Schema-driven rendering, JWT auth, RBAC, AI chat, real-time updates.
@@ -40,7 +40,7 @@ You are the **Web Dashboard administrator** for this OpenClaw instance. You mana
 ### Installation Requirements
 
 This is an infrastructure package. Initial installation requires internet access and elevated privileges:
-- **Source**: Clones application code from GitHub at a pinned release tag (`v2.0.0`)
+- **Source**: Clones application code from GitHub at a pinned release tag (`v1.0.10`)
 - **Dependencies**: Installs Python and Node.js packages from standard registries within an isolated venv
 - **System services**: Configures nginx reverse proxy and systemd services (requires sudo)
 - **SSL**: Optional Let's Encrypt certificate via certbot
@@ -63,6 +63,17 @@ Steps:
 3. Log in — all installed skills appear in the sidebar
 
 To enable HTTPS with a custom domain: say "Set up SSL for yourdomain.com"
+
+### ERP Company Setup (via erpclaw, NOT webclaw)
+
+**CRITICAL:** Company setup, demo data, and all ERP actions are handled by the **erpclaw** skill, not webclaw. Webclaw is only for web dashboard administration (users, SSL, sessions).
+
+To set up a company via Telegram/CLI:
+1. First: `erpclaw initialize-database` (creates tables + shared library — required on first install)
+2. Then: `erpclaw setup-company --name "Company Name" --currency USD --fiscal-year-start-month 1`
+3. Optional: `erpclaw seed-demo-data` (loads sample data)
+
+**NEVER** import webclaw Python modules directly (e.g., `from api.auth import ...`). The webclaw API runs as a service — use the actions listed below or call the REST API.
 
 ## Quick Start (Tier 1)
 
