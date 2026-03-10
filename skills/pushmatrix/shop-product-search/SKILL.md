@@ -2,7 +2,7 @@
 name: shop-product-search
 description: Search, browse, compare, find similar products, and buy from millions of online stores. No API Key required.
 metadata:
-  version: "0.0.11"
+  version: "0.0.13"
   author: "shopify"
 ---
 
@@ -46,7 +46,7 @@ Find products similar to a known product or an image.
 | `similarTo.id` | string | One of `id` or `media` | Product or variant GID from a previous search result. e.g. `gid://shopify/p/abc123`, `gid://shopify/ProductVariant/123456` |
 | `similarTo.media` | object | One of `id` or `media` | Image: `{ "contentType": "image/jpeg", "base64": "..." }` |
 
-Exactly **one** of `media` or `id`. Image: longest edge ≤ 1024 px, body ≤ 5 MB. If bigger than 1024 use any tool you have to resize, like Pillow, convert, im, etc.
+Exactly **one** of `media` or `id`. Image: longest edge ≤ 1024 px, body ≤ 5 MB. **You MUST resize images that exceed 1024 px before sending.** Use `convert`/`magick` on Linux, `sips` on macOS, or any other available tool.
 
 Response is the same markdown format as text search.
 
