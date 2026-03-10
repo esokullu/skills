@@ -3,11 +3,16 @@
   "slug": "ima-all-ai",
   "displayName": "IMA Studio All AI Generation",
   "latest": {
-    "version": "1.0.3",
-    "publishedAt": 1772815854183,
-    "commit": "https://github.com/openclaw/skills/commit/d2acba88585aa3e2db841b5e0dfac38b300939fc"
+    "version": "1.0.5",
+    "publishedAt": 1773039534047,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.3",
+      "publishedAt": 1772815854183,
+      "commit": "https://github.com/openclaw/skills/commit/d2acba88585aa3e2db841b5e0dfac38b300939fc"
+    },
     {
       "version": "1.0.1",
       "publishedAt": 1772548024053,
