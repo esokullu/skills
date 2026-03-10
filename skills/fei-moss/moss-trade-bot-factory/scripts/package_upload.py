@@ -24,6 +24,7 @@ def main():
     parser = argparse.ArgumentParser(description="Package upload bundle")
     parser.add_argument("--bot-name", required=True)
     parser.add_argument("--bot-personality", default="")
+    parser.add_argument("--bot-description", default="")
     parser.add_argument("--params-file", required=True)
     parser.add_argument("--fingerprint-file", required=True)
     parser.add_argument("--result-file", required=True)
@@ -92,7 +93,8 @@ def main():
         "version": "1.0",
         "bot": {
             "name": args.bot_name,
-            "personality": args.bot_personality,
+            "personality": args.bot_personality or args.bot_name,
+            "description": args.bot_description or f"{args.bot_name} - {args.bot_personality}",
             "params": params,
             "evolution_config": evolution_config,
         },
@@ -126,18 +128,14 @@ def main():
 
     if args.platform_url:
         try:
-            import urllib.request
-            verify_url = f"{args.platform_url}/api/v1/backtest/verify?user_uuid={args.user_uuid}"
-            req = urllib.request.Request(
-                verify_url,
-                data=json.dumps(package).encode(),
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                result = json.loads(resp.read())
-                print(f"\nPlatform response:")
-                print(json.dumps(result, indent=2, ensure_ascii=False))
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            os.environ.setdefault("TRADE_API_URL", args.platform_url)
+            from trading_client import TradingClient
+            client = TradingClient()
+            print(f"\nSubmitting to {args.platform_url}...")
+            result = client.verify_backtest_and_wait(args.user_uuid, package)
+            print(f"Platform response:")
+            print(json.dumps(result, indent=2, ensure_ascii=False))
         except Exception as e:
             print(f"Upload failed: {e}", file=sys.stderr)
             sys.exit(1)

@@ -58,7 +58,13 @@ def load_client(args) -> TradingClient:
 
 def cmd_bind(args):
     client = TradingClient()
-    result = client.bind(args.pair_code, args.name, args.fingerprint or "")
+    result = client.bind(
+        args.pair_code,
+        display_name=args.name,
+        persona=getattr(args, "persona", "") or args.name,
+        description=getattr(args, "description", "") or f"{args.name} trading bot",
+        fingerprint=args.fingerprint or "",
+    )
     print(json.dumps(result, indent=2))
 
     if "api_secret" in result and args.save:
@@ -122,6 +128,8 @@ def main():
     p = sub.add_parser("bind", help="Bind agent with pair code")
     p.add_argument("--pair-code", required=True)
     p.add_argument("--name", default="Bot")
+    p.add_argument("--persona", default="", help="Bot persona (e.g. 趋势死磕派)")
+    p.add_argument("--description", default="", help="Bot description")
     p.add_argument("--fingerprint", default="")
     p.add_argument("--save", default="", help="Save credentials to JSON file")
 

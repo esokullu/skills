@@ -3,9 +3,15 @@
   "slug": "moss-trade-bot-factory",
   "displayName": "moss-trade-bot-factory",
   "latest": {
-    "version": "1.0.1",
-    "publishedAt": 1772702376629,
-    "commit": "https://github.com/openclaw/skills/commit/3cfb9e2b9f19358b0f0181472bb96b814b2d4755"
+    "version": "1.0.2",
+    "publishedAt": 1773135511295,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1772702376629,
+      "commit": "https://github.com/openclaw/skills/commit/3cfb9e2b9f19358b0f0181472bb96b814b2d4755"
+    }
+  ]
 }

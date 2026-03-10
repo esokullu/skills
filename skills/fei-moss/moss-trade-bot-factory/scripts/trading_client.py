@@ -8,7 +8,6 @@ import secrets
 import time
 import urllib.request
 import urllib.parse
-from typing import Optional
 
 
 BASE_URL = os.environ.get("TRADE_API_URL", "http://54.255.3.5:8088")
@@ -32,8 +31,10 @@ class TradingClient:
         return ts, nonce, signature
 
     def _request(self, method: str, path: str, body: dict = None,
-                 query: dict = None, need_auth: bool = True) -> dict:
-        full_path = f"{API_PREFIX}{path}"
+                 query: dict = None, need_auth: bool = True,
+                 custom_prefix: str = None) -> dict:
+        prefix = custom_prefix if custom_prefix is not None else API_PREFIX
+        full_path = f"{prefix}{path}"
         url = f"{self.base_url}{full_path}"
 
         canonical_query = ""
@@ -64,7 +65,10 @@ class TradingClient:
 
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
-                return json.loads(resp.read())
+                resp_body = resp.read()
+                if not resp_body:
+                    return {"status": "ok"}
+                return json.loads(resp_body)
         except urllib.error.HTTPError as e:
             error_body = e.read().decode()
             try:
@@ -77,16 +81,37 @@ class TradingClient:
     def create_pair_code(self, user_uuid: str) -> dict:
         return self._request("POST", "/pair-codes", query={"user_uuid": user_uuid}, need_auth=False)
 
-    def bind(self, pair_code: str, agent_name: str = "Bot", fingerprint: str = "") -> dict:
+    def bind(self, pair_code: str, display_name: str = "Bot",
+             persona: str = "", description: str = "",
+             fingerprint: str = "") -> dict:
         if not fingerprint:
             fingerprint = f"sha256:{secrets.token_hex(16)}"
-        return self._request("POST", "/agents/bind", {
+        body = {
             "pair_code": pair_code,
-            "agent_name": agent_name,
+            "display_name": display_name,
+            "persona": persona or display_name,
+            "description": description or f"{display_name} trading bot",
             "agent_fingerprint": fingerprint,
-        }, need_auth=False)
+        }
+        return self._request("POST", "/agents/bind", body, need_auth=False)
 
-    # ── Trading ──
+    def unbind(self, agent_id: str, user_uuid: str) -> dict:
+        return self._request("POST", f"/agents/{agent_id}/unbind",
+                             query={"user_uuid": user_uuid}, need_auth=False)
+
+    # ── Profile (HMAC) ──
+
+    def update_profile(self, display_name: str = "", persona: str = "", description: str = "") -> dict:
+        body = {}
+        if display_name:
+            body["display_name"] = display_name
+        if persona:
+            body["persona"] = persona
+        if description:
+            body["description"] = description
+        return self._request("PATCH", "/profile", body)
+
+    # ── Trading (HMAC) ──
 
     def get_price(self) -> dict:
         return self._request("GET", "/market/price")
@@ -142,21 +167,73 @@ class TradingClient:
             body["close_qty_btc"] = close_qty_btc
         return self._request("POST", "/positions/close", body)
 
-    def unbind(self, agent_id: str, user_uuid: str) -> dict:
-        return self._request("POST", f"/agents/{agent_id}/unbind",
-                             query={"user_uuid": user_uuid}, need_auth=False)
+    # ── Public display (no auth) ──
 
-    # ── Display (human-side, user_uuid required) ──
+    def get_discover_leaderboard(self, mode: str = "realtime") -> dict:
+        return self._request("GET", "/trader/discover/leaderboard",
+                             query={"mode": mode}, need_auth=False)
+
+    def get_bots_public(self, mode: str = "hell", sort_by: str = "pnl",
+                        sort_order: str = "desc", page: int = 1, page_size: int = 20) -> dict:
+        return self._request("GET", "/trader/bots", query={
+            "mode": mode, "sort_by": sort_by, "sort_order": sort_order,
+            "page": str(page), "page_size": str(page_size),
+        }, need_auth=False)
+
+    def get_bot_detail_public(self, bot_id: str) -> dict:
+        return self._request("GET", f"/trader/bots/{bot_id}", need_auth=False)
+
+    # ── User-scoped display (no auth, needs user_uuid) ──
 
     def get_overview(self, user_uuid: str) -> dict:
         return self._request("GET", "/trader/overview",
                              query={"user_uuid": user_uuid}, need_auth=False)
 
-    def get_bots(self, user_uuid: str) -> dict:
-        return self._request("GET", "/trader/bots",
-                             query={"user_uuid": user_uuid, "category": "agents"}, need_auth=False)
+    # ── Backtest (all under /api/v1/moss/agent/backtest/) ──
 
-    def get_bot_detail(self, user_uuid: str, bot_id: str = "") -> dict:
-        bid = bot_id or self.agent_id
-        return self._request("GET", f"/trader/bots/{bid}",
+    def verify_backtest(self, user_uuid: str, package: dict) -> dict:
+        """Submit verify job (async). Returns job_id, poll with get_verify_job()."""
+        return self._request("POST", "/backtest/verify", body=package,
                              query={"user_uuid": user_uuid}, need_auth=False)
+
+    def get_verify_job(self, user_uuid: str, job_id: str) -> dict:
+        """Poll verify job status. Terminal states: verified/rejected/failed."""
+        return self._request("GET", f"/backtest/jobs/{job_id}",
+                             query={"user_uuid": user_uuid}, need_auth=False)
+
+    def verify_backtest_and_wait(self, user_uuid: str, package: dict,
+                                  poll_interval: int = 3, max_wait: int = 120) -> dict:
+        """Submit + poll until terminal state."""
+        import time as _time
+        job = self.verify_backtest(user_uuid, package)
+        job_id = job.get("job_id", "")
+        if not job_id:
+            return job
+
+        elapsed = 0
+        while elapsed < max_wait:
+            _time.sleep(poll_interval)
+            elapsed += poll_interval
+            status = self.get_verify_job(user_uuid, job_id)
+            st = status.get("status", "")
+            if st in ("verified", "rejected", "failed"):
+                return status.get("result", status)
+        return {"code": "TIMEOUT", "message": f"Job {job_id} not done after {max_wait}s"}
+
+    def get_backtest_bots(self, user_uuid: str, page: int = 1, page_size: int = 20) -> dict:
+        return self._request("GET", "/backtest/bots", query={
+            "user_uuid": user_uuid, "page": str(page), "page_size": str(page_size),
+        }, need_auth=False)
+
+    def get_backtest_bot_detail(self, user_uuid: str, bot_id: str) -> dict:
+        return self._request("GET", f"/backtest/bots/{bot_id}",
+                             query={"user_uuid": user_uuid}, need_auth=False)
+
+    def delete_backtest_bot(self, user_uuid: str, bot_id: str) -> dict:
+        return self._request("DELETE", f"/backtest/bots/{bot_id}",
+                             query={"user_uuid": user_uuid}, need_auth=False)
+
+    def get_backtest_leaderboard(self, sort_by: str = "return", page: int = 1, page_size: int = 20) -> dict:
+        return self._request("GET", "/backtest/leaderboard", query={
+            "sort_by": sort_by, "page": str(page), "page_size": str(page_size),
+        }, need_auth=False)

@@ -159,6 +159,7 @@ def main():
 
     equity = full_result.equity_curve
     cumulative_return = 0.0
+    peak_return = 0.0
 
     current_params_track = copy.deepcopy(initial_params)
     for seg_idx, seg_start, seg_end, seg_start_time, seg_end_time in seg_boundaries:
@@ -174,10 +175,46 @@ def main():
 
         seg_trades = [t for t in full_result.trades
                       if t.entry_idx >= seg_start and t.entry_idx < seg_end]
-        seg_wins = sum(1 for t in seg_trades if t.pnl > 0)
-        seg_wr = seg_wins / len(seg_trades) if seg_trades else 0
+        seg_wins = [t for t in seg_trades if t.pnl > 0]
+        seg_losses = [t for t in seg_trades if t.pnl <= 0]
+        seg_wr = len(seg_wins) / len(seg_trades) if seg_trades else 0
 
         cumulative_return = (eq_end - args.capital) / args.capital
+
+        exit_reasons = {}
+        for t in seg_trades:
+            exit_reasons[t.exit_reason] = exit_reasons.get(t.exit_reason, 0) + 1
+
+        avg_win_pct = np.mean([t.pnl_pct for t in seg_wins]) if seg_wins else 0
+        avg_loss_pct = np.mean([t.pnl_pct for t in seg_losses]) if seg_losses else 0
+
+        longs = sum(1 for t in seg_trades if t.direction == 1)
+        shorts = sum(1 for t in seg_trades if t.direction == -1)
+
+        recent_trades = []
+        for t in seg_trades[-8:]:
+            recent_trades.append({
+                "direction": "LONG" if t.direction == 1 else "SHORT",
+                "entry_price": round(t.entry_price, 2),
+                "exit_price": round(t.exit_price, 2) if t.exit_price else None,
+                "pnl_pct": round(t.pnl_pct * 100, 1),
+                "leverage": t.leverage,
+                "exit_reason": t.exit_reason,
+            })
+
+        seg_price_start = df["close"].iloc[seg_start]
+        seg_price_end = df["close"].iloc[min(seg_end - 1, len(df) - 1)]
+        seg_price_change = (seg_price_end / seg_price_start - 1) * 100
+
+        peak_return = max(cumulative_return, peak_return) if seg_idx > 0 else cumulative_return
+        drawdown_from_peak = peak_return - cumulative_return
+
+        all_trades_so_far = [t for t in full_result.trades if t.entry_idx < seg_end]
+        cum_wins = sum(1 for t in all_trades_so_far if t.pnl > 0)
+        cum_total = len(all_trades_so_far)
+        cum_wr = cum_wins / cum_total * 100 if cum_total else 0
+
+        recent_seg_returns = [e["segment_result"]["total_return"] for e in evolution_log[-3:]] if evolution_log else []
 
         entry = {
             "round": seg_idx + 1,
@@ -189,15 +226,35 @@ def main():
                 "total_trades": len(seg_trades),
                 "win_rate": round(seg_wr, 4),
                 "blowup_count": 0,
+                "exit_reasons": exit_reasons,
+                "avg_win_pct": round(avg_win_pct * 100, 1),
+                "avg_loss_pct": round(avg_loss_pct * 100, 1),
+                "longs": longs,
+                "shorts": shorts,
             },
-            "cumulative_return": round(cumulative_return, 4),
+            "market_context": {
+                "price_start": round(seg_price_start, 2),
+                "price_end": round(seg_price_end, 2),
+                "price_change_pct": round(seg_price_change, 1),
+                "regime": regime.iloc[seg_start],
+            },
+            "cumulative_context": {
+                "cumulative_return": round(cumulative_return, 4),
+                "peak_return": round(peak_return, 4),
+                "drawdown_from_peak": round(drawdown_from_peak, 4),
+                "total_trades_so_far": cum_total,
+                "cumulative_win_rate": round(cum_wr, 1),
+                "recent_3_seg_returns": [round(r * 100, 1) for r in recent_seg_returns],
+            },
+            "recent_trades": recent_trades,
         }
         evolution_log.append(entry)
 
         print(f"  Segment {seg_idx+1}/{len(seg_boundaries)}: "
               f"{seg_start_time[:10]}~{seg_end_time[:10]} | "
               f"seg={seg_return*100:+.1f}% | "
-              f"trades={len(seg_trades)} | "
+              f"trades={len(seg_trades)} (L{longs}/S{shorts}) | "
+              f"exits={exit_reasons} | "
               f"cumulative={cumulative_return*100:+.1f}%",
               file=sys.stderr)
 

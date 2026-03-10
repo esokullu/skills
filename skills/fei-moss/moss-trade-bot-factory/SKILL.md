@@ -112,18 +112,31 @@ metadata: {"openclaw": {"requires": {"bins": ["python3"]}, "emoji": "🤖"}}
 
 ---
 
-## Step 1: 理解意图，直接推进
+## Step 1: 理解意图，确认进化选项
 
-收到用户的策略描述后，**用你的专业判断自动填充所有配置**，不要逐项追问。
+收到用户的策略描述后，**用你的专业判断自动填充大部分配置**，但**必须问用户一个问题：是否启用进化**。
 
-规则：
-- 用户没提的全用默认值（BTC/USDT, 15m, 148天, 每周进化, $10,000）
-- 方向偏好从风格自动推断：趋势跟随→双向(0.5)，做空/逆势→偏空(0.1~0.3)，保守/定投→偏多(0.6~0.8)
-- 杠杆从风格推断：保守→3~5x，中性→8~12x，激进→15~25x，梭哈→50~100x
-- **不要问用户"偏多还是偏空""杠杆多少""要不要滚仓"**这类你能从风格推断的问题
-- 只有用户描述真的含糊到无法判断时，才问一个关键问题（最多1个）
+其他配置（交易对、K线级别、杠杆、方向等）从风格自动推断，不要逐项追问：
+- 方向偏好：趋势跟随→双向(0.5)，做空/逆势→偏空(0.1~0.3)，保守/定投→偏多(0.6~0.8)
+- 杠杆：保守→3~5x，中性→8~12x，激进→15~25x，梭哈→50~100x
+- 默认值：BTC/USDT, 15m, 148天, $10,000
 
-用户说"创建一个趋势交易bot"→ 你应该直接进 Step 2 生成参数，不需要问任何问题。
+**必须问用户的一个问题：**
+
+```
+是否启用每周进化？
+
+开启：Bot每周会根据交易成绩自动微调战术参数（如入场阈值、止损距离等），
+     适应市场变化。核心性格（杠杆、方向、信号权重）不会改变。
+     适合：趋势跟随、动量类策略
+     
+关闭：参数完全固定不变，严格按初始设定执行。
+     适合：纪律型策略（如海龟交易法）、你对参数很有信心的情况
+
+默认建议：开启
+```
+
+用户回复后直接进 Step 2。
 
 ## Step 2: 生成参数并直接跑回测
 
@@ -187,7 +200,21 @@ segment-bars 计算：
 
 **第三步：你来做反思——逐段分析，生成进化计划**
 
-读取 /tmp/evolve_baseline.json 中的 evolution_log。对每一段，按以下规则分析。
+读取 /tmp/evolve_baseline.json 中的 evolution_log。每段包含丰富的上下文供你分析：
+
+- `segment_result.exit_reasons` — 出场原因统计（stop_loss/trailing_stop/take_profit/signal_reverse各多少次）
+- `segment_result.avg_win_pct / avg_loss_pct` — 平均盈利/亏损百分比
+- `segment_result.longs / shorts` — 多空方向分布
+- `market_context` — 本段BTC价格走势和regime
+- `cumulative_context` — 累计收益、峰值、峰值回撤、累计胜率、近3段表现
+- `recent_trades` — 最近8笔交易明细（方向/价格/盈亏/出场原因）
+
+**你必须看这些数据再做调参决策，不能只看 total_return 一个数字。** 例如：
+- 止损次数占80%+ → 考虑加宽 sl_atr_mult
+- 全是同方向止损 → 可能 long_bias 方向和行情不符（但不能改，只能调 entry_threshold）
+- 均盈 > 均亏但胜率低 → 结构健康，不要大改
+
+对每一段，按以下规则分析。
 
 #### 反思7原则
 
@@ -264,35 +291,47 @@ cd {baseDir}/scripts && python3 package_upload.py \
   --output /tmp/upload_package.json
 ```
 
-上传到验证平台（需要 user_uuid）：
+上传到验证平台（会自动提交 + 轮询等待结果）：
 
 ```bash
-curl -sS -X POST "http://54.255.3.5:8088/api/v1/backtest/verify?user_uuid=<用户UUID>" \
-  -H "Content-Type: application/json" \
-  -d @/tmp/upload_package.json
+cd {baseDir}/scripts && python3 package_upload.py \
+  --bot-name "<名称>" \
+  --bot-personality "<风格标签>" \
+  --bot-description "<策略描述，≤280字>" \
+  --params-file /tmp/bot_params.json \
+  --fingerprint-file /tmp/fingerprint.json \
+  --result-file /tmp/evolve_result_final.json \
+  --output /tmp/upload_package.json \
+  --platform-url http://54.255.3.5:8088 \
+  --user-uuid <用户UUID>
 ```
 
+注意：验证是异步的。`package_upload.py` 会自动提交任务并轮询直到出结果（最长等120秒）。
+
+上传包必须包含 `bot.description` 字段（≤280字策略描述）。
+
 验证结果处理：
-- `status: "verified"` — 通过，告知用户 bot_id 和结果
+- `status: "verified"` — 通过，平台自动创建 hell Agent，响应中返回 `agent_id`。告知用户 bot_id、agent_id 和结果
 - `status: "rejected"` — **不要问用户怎么办**，自己分析 mismatch_details：
   - 如果是精度/四舍五入问题（偏差 <1%）→ 用 verified_result 中的值替换后重新提交
   - 如果是数据指纹不匹配 → 重新拉数据生成指纹后重试
   - 如果是交易数量/收益差异巨大（>10%）→ 告知用户"平台回测引擎结果有差异，已反馈"
   - 最多自动重试 2 次，全失败才告知用户
+- `status: "failed"` — 平台内部错误，告知用户稍后重试
 
 验证通过后，可以查看 Bot 列表和排行榜：
 ```bash
 # Bot列表
-curl -sS "http://54.255.3.5:8088/api/v1/backtest/bots?user_uuid=<UUID>&page=1&page_size=20"
+curl -sS "http://54.255.3.5:8088/api/v1/moss/agent/backtest/bots?user_uuid=<UUID>&page=1&page_size=20"
 
 # Bot详情
-curl -sS "http://54.255.3.5:8088/api/v1/backtest/bots/<bot_id>?user_uuid=<UUID>"
+curl -sS "http://54.255.3.5:8088/api/v1/moss/agent/backtest/bots/<bot_id>?user_uuid=<UUID>"
 
 # 排行榜（按收益/Sharpe/回撤排序）
-curl -sS "http://54.255.3.5:8088/api/v1/backtest/leaderboard?sort_by=return&page=1&page_size=20"
+curl -sS "http://54.255.3.5:8088/api/v1/moss/agent/backtest/leaderboard?sort_by=return&page=1&page_size=20"
 
 # 删除Bot
-curl -sS -X DELETE "http://54.255.3.5:8088/api/v1/backtest/bots/<bot_id>?user_uuid=<UUID>"
+curl -sS -X DELETE "http://54.255.3.5:8088/api/v1/moss/agent/backtest/bots/<bot_id>?user_uuid=<UUID>"
 ```
 
 ### 验证规则
@@ -334,18 +373,22 @@ from trading_client import TradingClient
 import json
 client = TradingClient()
 pair = client.create_pair_code('default_user')
-result = client.bind(pair['pair_code'], '<Bot名称>')
+result = client.bind(pair['pair_code'], display_name='<Bot名称>', persona='<风格标签>', description='<策略描述>')
 with open('/tmp/agent_creds.json', 'w') as f:
     json.dump(result, f, indent=2)
 print('Bound:', result.get('agent_id'))
 "
 ```
 
+bind 必填字段：`display_name`（名称）、`persona`（风格标签，如"趋势死磕派"，≤64字）、`description`（策略描述，≤280字）
+
 如果用户主动提供了配对码（pair_code），也可以直接用：
 ```bash
 cd {baseDir}/scripts && python3 live_trade.py bind \
   --pair-code "<配对码>" \
   --name "<Bot名称>" \
+  --persona "<风格标签>" \
+  --description "<策略描述>" \
   --save /tmp/agent_creds.json
 ```
 
