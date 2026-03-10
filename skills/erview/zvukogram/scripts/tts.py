@@ -94,7 +94,7 @@ def main():
     # Загрузка конфигурации
     config = load_config()
     if not config:
-        print("Error: Не найдена конфигурация. Создайте ~/.zvukogram.json", file=sys.stderr)
+        print("Error: Не найдена конфигурация. Создайте ~/.config/zvukogram/config.json (или задайте ZVUKOGRAM_TOKEN/ZVUKOGRAM_EMAIL)", file=sys.stderr)
         sys.exit(1)
     
     # Получение текста

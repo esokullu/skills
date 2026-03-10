@@ -42,25 +42,20 @@
 <prosody pitch="-2st">Lower pitch</prosody>
 ```
 
-### Full Podcast Example
+### Multi-voice Podcast Pattern (API-safe)
 
+Zvukogram API multi-voice is typically done by **separate requests per voice** and then merging audio fragments.
+
+Example SSML snippet (content only, per fragment):
 ```xml
-<speak>
-  <voice name="Алена">
-    Good morning! You're listening to 
-    <sub alias="Эй Ай Дейли">AI Daily</sub> podcast.
-    <break time="300ms"/>
-    Today we'll talk about 
-    <sub alias="Оупен Эй Ай">OpenAI</sub>.
-  </voice>
-</speak>
+Доброе утро! Вы слушаете <sub alias="Эй Ай Дейли">AI Daily</sub>.
+<break time="300ms"/>
+Сегодня обсудим <sub alias="Оупен Эй Ай">OpenAI</sub>.
 ```
 
 ## Tags by Category
 
-### Structure
-- `<speak>` — root element
-- `<voice name="...">` — voice selection
+### Pauses
 - `<break time="..."/>` — pause
 
 ### Prosody (Intonation)
@@ -70,13 +65,17 @@
 
 ### Pronunciation
 - `<sub alias="...">` — alias
-- `<say-as stress="N">` — stress on Nth syllable
-- `<phoneme alphabet="ipa" ph="...">` — phonetic transcription
+- Stress marks with `+` — put `+` before stressed vowel (quick + robust)
+- `<phoneme alphabet="ipa" ph="...">` — phonetic transcription (expert)
 
-### Formatting
-- `<say-as interpret-as="spell-out">` — spell out
-- `<say-as interpret-as="cardinal">` — cardinal number
-- `<say-as interpret-as="ordinal">` — ordinal number
-- `<say-as interpret-as="date">` — date
+### Formatting (`say-as`)
+- `<say-as interpret-as="spell-out">` — spell out letters
+- `<say-as interpret-as="cardinal">` — cardinal number (quantity)
+- `<say-as interpret-as="ordinal">` — ordinal number (order)
+- `<say-as interpret-as="fraction">` — fractions
+- `<say-as interpret-as="date">` — dates
 - `<say-as interpret-as="time">` — time
-- `<say-as interpret-as="currency">` — currency
+- `<say-as interpret-as="telephone">` — phone numbers
+- `<say-as interpret-as="currency">` — currency (limited voices)
+- `<say-as interpret-as="money">` — money (advanced voices)
+- `<say-as interpret-as="bleep">` — censorship

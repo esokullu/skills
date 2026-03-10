@@ -1,13 +1,18 @@
 {
   "owner": "erview",
   "slug": "zvukogram",
-  "displayName": "Zvukogram",
+  "displayName": "Zvukogram TTS",
   "latest": {
-    "version": "1.1.2",
-    "publishedAt": 1771775238487,
-    "commit": "https://github.com/openclaw/skills/commit/fab324de5af6614adc17208900ece38209373bc5"
+    "version": "1.1.4",
+    "publishedAt": 1772897160398,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.1.2",
+      "publishedAt": 1771775238487,
+      "commit": "https://github.com/openclaw/skills/commit/fab324de5af6614adc17208900ece38209373bc5"
+    },
     {
       "version": "1.1.0",
       "publishedAt": 1771521727052,

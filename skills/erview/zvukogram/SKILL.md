@@ -110,7 +110,9 @@ See [references/TRANSCRIPTION.md](references/TRANSCRIPTION.md) for proper pronun
 
 ## SSML Reference
 
-See [references/SSML_CHEATSHEET.md](references/SSML_CHEATSHEET.md) for quick tag lookup.
+- Full, agent-readable reference (recommended): [references/SSML.md](references/SSML.md)
+- Quick lookup: [references/SSML_CHEATSHEET.md](references/SSML_CHEATSHEET.md)
+- Official Zvukogram SSML docs: https://zvukogram.com/node/ssml/
 
 ## Troubleshooting
 
@@ -123,8 +125,7 @@ See [references/TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) for:
 
 - Max 1000 characters per request (`/text`)
 - Up to 1M characters via `/longtext`
-- SSML with `<voice>` not supported via API (web only)
-- For multi-voice — merge fragments
+- Do not rely on `<voice>` / `<speak>` wrappers for API usage. For multi-voice, generate and merge fragments (one request per voice).
 
 ## Links
 
