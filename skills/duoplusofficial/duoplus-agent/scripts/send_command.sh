@@ -22,20 +22,28 @@ MD5="openclaw-md5"
 if echo "$ACTION_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'task_type' in d" 2>/dev/null; then
   FULL_JSON="$ACTION_JSON"
 else
-  # 提取 action_name 和 params
-  ACTION_NAME=$(echo "$ACTION_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('action_name',''))")
-  PARAMS=$(echo "$ACTION_JSON" | python3 -c "import sys,json; import json as j; print(j.dumps(json.load(sys.stdin).get('params',{})))")
+  # 通过环境变量传递数据给 Python，避免命令注入
+  FULL_JSON=$(ACTION_JSON="$ACTION_JSON" TASK_ID="$TASK_ID" MD5="$MD5" python3 -c "
+import json, os, sys
 
-  FULL_JSON=$(python3 -c "
-import json
-print(json.dumps({
+try:
+    action_data = json.loads(os.environ['ACTION_JSON'])
+except (json.JSONDecodeError, KeyError) as e:
+    print(f'Error: invalid ACTION_JSON: {e}', file=sys.stderr)
+    sys.exit(1)
+
+action_name = action_data.get('action_name', '')
+params = action_data.get('params', {})
+
+payload = {
     'task_type': 'ai',
     'action': 'execute',
-    'task_id': '$TASK_ID',
-    'md5': '$MD5',
-    'action_name': '$ACTION_NAME',
-    'params': json.loads('$PARAMS')
-}))
+    'task_id': os.environ['TASK_ID'],
+    'md5': os.environ['MD5'],
+    'action_name': action_name,
+    'params': params
+}
+print(json.dumps(payload))
 ")
 fi
 

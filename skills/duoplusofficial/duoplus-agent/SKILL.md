@@ -1,22 +1,18 @@
 ---
 name: duoplus-agent
 displayName: DuoPlus CloudPhone Agent
-description: Control Android cloud phones via ADB - tap, swipe, type, screenshot, read UI elements. Send commands to DuoPlus cloud phones running StandardSoftwareService.
+description: Control Android cloud phones via ADB - tap, swipe, type, screenshot, read UI elements. Send commands to DuoPlus cloud phones running.
 version: 1.0.0
+license: MIT-0
 metadata:
   clawdbot:
     emoji: "📱"
     requires:
       bins: ["adb"]
-changelog:
-  - version: 1.0.5
-    title: Initial Release
-    changes:
-      - Change SKILL.md
+changelog: change send_command.sh
 ---
-
 # DuoPlus CloudPhone Agent
-Control Android cloud phones remotely through ADB broadcast commands. The target device must be running **StandardSoftwareService** (a system-level automation service).
+Control Android cloud phones remotely through ADB broadcast commands. The target device must be running **DuoPlus CloudPhone**.
 
 For more information about our product and services, visit [DuoPlus Official Website](https://www.duoplus.net/).
 
@@ -36,7 +32,7 @@ All subsequent commands use `-s <DEVICE_ID>` to target a specific device.
 
 ## Environment Check
 
-This skill only works on DuoPlus cloud phones with StandardSoftwareService version >= 2.0.0. Before using any commands, verify the device is compatible:
+This skill only works on DuoPlus cloud phones with Service version >= 2.0.0. Before using any commands, verify the device is compatible:
 
 ```bash
 # Check if device is a supported DuoPlus cloud phone
