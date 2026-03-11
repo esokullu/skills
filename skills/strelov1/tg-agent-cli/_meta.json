@@ -1,0 +1,11 @@
+{
+  "owner": "strelov1",
+  "slug": "tg-agent-cli",
+  "displayName": "Telegram Agent Native CLI",
+  "latest": {
+    "version": "1.2.1",
+    "publishedAt": 1773256219192,
+    "commit": null
+  },
+  "history": []
+}
