@@ -1,0 +1,11 @@
+{
+  "owner": "timing-up",
+  "slug": "groq-voice-transcribe",
+  "displayName": "Groq Voice Transcribe",
+  "latest": {
+    "version": "1.0.1",
+    "publishedAt": 1773070913084,
+    "commit": null
+  },
+  "history": []
+}
