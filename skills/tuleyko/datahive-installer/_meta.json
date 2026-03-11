@@ -1,0 +1,11 @@
+{
+  "owner": "tuleyko",
+  "slug": "datahive-installer",
+  "displayName": "DataHive Installer",
+  "latest": {
+    "version": "0.1.0",
+    "publishedAt": 1773044953693,
+    "commit": null
+  },
+  "history": []
+}
