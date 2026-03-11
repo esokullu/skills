@@ -1,0 +1,29 @@
+{
+  "name": "JEP Guard",
+  "version": "1.0.0",
+  "description": "Add responsibility layer to Clawbot - prevent accidental deletions, control token budgets, trace every action with JEP receipts",
+  "author": "JEP Foundation",
+  "permissions": [
+    "filesystem",
+    "network",
+    "process",
+    "ui"
+  ],
+  "hooks": {
+    "beforeCommand": "sidecar.js",
+    "onInstall": "ui-patch.js",
+    "onUninstall": "cleanup.js"
+  },
+  "commands": {
+    "config": {
+      "handler": "sidecar.js",
+      "description": "Configure JEP Guard settings"
+    },
+    "export": {
+      "handler": "export.js",
+      "description": "Export audit logs with JEP receipts"
+    }
+  },
+  "repository": "https://github.com/jep-eth/jep-claw-integration",
+  "license": "MIT"
+}
