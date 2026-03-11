@@ -3,6 +3,7 @@ name: best-product
 description: Find the best products in any category with expert picks, value recommendations, and budget options across US, UK, and EU retailers.
 homepage: https://github.com/openclaw/skills
 metadata:
+  version: "1.0.2"
   clawdbot:
     emoji: "🛒"
     tags: ["product-recommendation", "shopping", "reviews", "comparison"]
@@ -79,6 +80,7 @@ Finds the best products in a category using authoritative review sources across 
 | Retailer | Website |
 |----------|---------|
 | Amazon DE | amazon.de |
+| Coolblue | coolblue.de |
 | MediaMarkt DE | mediamarkt.de |
 | Saturn | saturn.de |
 | Otto | otto.de |
@@ -113,16 +115,15 @@ Finds the best products in a category using authoritative review sources across 
 | Retailer | Website |
 |----------|---------|
 | Amazon NL | amazon.nl |
-| CoolBlue | coolblue.nl |
+| Coolblue | coolblue.nl |
 | MediaMarkt NL | mediamarkt.nl |
-| BCC | bcc.nl |
 
 #### Belgium
 | Retailer | Website |
 |----------|---------|
 | Amazon BE | amazon.be |
 | MediaMarkt BE | mediamarkt.be |
-| CoolBlue | coolblue.be |
+| Coolblue | coolblue.be |
 | Krëfel | krefel.be |
 
 #### Poland
@@ -169,10 +170,10 @@ Finds the best products in a category using authoritative review sources across 
 | `/best [product] fr` | France | amazon.fr, Fnac, Darty, Boulanger |
 | `/best [product] it` | Italy | amazon.it, MediaMarkt, Unieuro |
 | `/best [product] es` | Spain | amazon.es, MediaMarkt, El Corte Inglés |
-| `/best [product] nl` | Netherlands | amazon.nl, CoolBlue, MediaMarkt |
-| `/best [product] be` | Belgium | amazon.be, MediaMarkt, CoolBlue |
+| `/best [product] nl` | Netherlands | amazon.nl, Coolblue, MediaMarkt |
+| `/best [product] be` | Belgium | amazon.be, MediaMarkt, Coolblue |
 | `/best [product] pl` | Poland | amazon.pl, Media Expert, RTV Euro AGD |
-| `/best [product] eu` | Generic EU | amazon.de, CoolBlue, MediaMarkt |
+| `/best [product] eu` | Generic EU | amazon.de, Coolblue, MediaMarkt |
 
 ## Output Format
 
@@ -185,19 +186,19 @@ Finds the best products in a category using authoritative review sources across 
 [Product Name]
 €[price range]
 [1-sentence summary why]
-🔗 google.nl/search?q=product+name
+🔗 https://www.google.nl/search?q=product+name
 
 💎 BEST VALUE
 [Product Name]
 €[price range]
 [1-sentence summary why]
-🔗 google.nl/search?q=product+name
+🔗 https://www.google.nl/search?q=product+name
 
 💶 BUDGET
 [Product Name]
 €[price range]
 [1-sentence summary why]
-🔗 google.nl/search?q=product+name
+🔗 https://www.google.nl/search?q=product+name
 ```
 
 ## Caching
@@ -217,7 +218,7 @@ Finds the best products in a category using authoritative review sources across 
 | ✅ Full product name | Always use exact name from reviews (e.g., "Philips Airfryer XXL 3000 Series NA342") |
 | ✅ Region match | Use google.nl for NL, google.de for DE, google.co.uk for UK |
 | ❌ No direct retailer links | These often block; Google search always works |
-| ❌ No mock/hallucinated URLs | Always construct from verified product names |
+| ❌ No markdown links | Use raw URL format only: `🔗 https://www.google.nl/search?q=product` — never `[text](url)` |
 
 **Verification workflow:**
 1. Search reviews → get exact product names
@@ -229,21 +230,30 @@ Finds the best products in a category using authoritative review sources across 
 
 | Endpoint | Data Sent | Purpose |
 |----------|-----------|---------|
-| brave-search (API) | Search queries only | Find review pages |
-| web_fetch (target URLs) | None — read-only | Extract product info |
+| Brave Search API | Search queries only | Find review pages from trusted sources |
+| Google Search URLs | Product names only | Generate price comparison links for user |
+| web_fetch (review sites) | None — read-only | Extract product recommendations |
 
 No personal data, credentials, or API keys are sent to external services.
 
+## Privacy & System Access
+
+- **Timezone detection:** Reads system timezone to default to user's region (can be overridden via command)
+- **Cache:** Writes to `~/.openclaw/cache/best-products/` for 6 hours
+- **No credentials required:** Uses built-in web tools only
+
 ## Security & Privacy
 
-- **Data leaving the machine:** Search queries and page URLs are sent to Brave Search API
+- **Data leaving the machine:** 
+  - Product search terms → Brave Search API
+  - Product names → Google Search (for price links)
 - **Data at rest:** Results cached locally for 6 hours only
 - **No credentials required:** Uses OpenClaw's built-in web_search and web_fetch tools
 - **No PII:** No user identifiers, emails, or personal information processed
 
 ## Trust Statement
 
-This skill uses publicly available review data from trusted sources (Wirecutter, RTINGS, Which?, Tweakers, Consumentenbond, etc.) and price data from major retailers (Amazon, Best Buy, MediaMarkt, CoolBlue, etc.). No personal data is collected or sent to third parties beyond standard search queries.
+This skill uses publicly available review data from trusted sources (Wirecutter, RTINGS, Which?, Tweakers, Consumentenbond, etc.) and price data from major retailers (Amazon, Best Buy, MediaMarkt, Coolblue, etc.). No personal data is collected or sent to third parties beyond standard search queries.
 
 By using this skill, only product search terms are sent to the Brave Search API. All product data comes from publicly accessible web pages.
 
