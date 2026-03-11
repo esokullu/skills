@@ -1,0 +1,11 @@
+{
+  "owner": "zhenstaff",
+  "slug": "banking-agent-os",
+  "displayName": "Banking Agent OS",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1773059617153,
+    "commit": null
+  },
+  "history": []
+}
