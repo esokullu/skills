@@ -528,13 +528,13 @@ ENTRYPOINT ["/start-shadowsocks.sh"]
 **shadowsocks.json:**
 ```json
 {
-    "server": "138.249.106.2",
-    "server_port": 64619,
-    "local_port": 1080,
-    "local_address": "0.0.0.0",
-    "password": "NedyYDqp",
+    "server": "YOURIP",
+    "server_port": YOURPORT,
+    "local_port": YOURPORT,
+    "local_address": "YOURIP",
+    "password": "YOURpass",
     "timeout": 300,
-    "method": "aes-256-gcm"
+    "method": "YOURMETHOD"
 }
 ```
 
@@ -788,9 +788,9 @@ echo "<VALID_JWT>" > /root/.urnetwork/jwt
 
 **2. Deploy to Remote VPS:**
 ```bash
-VPS_IP="217.154.66.195"
-VPS_USER="limebot"
-VPS_PASS="your-password"
+VPS_IP="YOURIP"
+VPS_USER="YOURuser"
+VPS_PASS="YOURpassword"
 
 # Copy JWT to remote
 sshpass -p "$VPS_PASS" scp /root/.urnetwork/jwt $VPS_USER@$VPS_IP:/home/$VPS_USER/.urnetwork/jwt
