@@ -1,0 +1,51 @@
+{
+  "name": "pattern-miner",
+  "version": "0.1.0",
+  "description": "Automatic pattern detection and template generation for code and workflows",
+  "main": "pattern_miner/cli.py",
+  "scripts": {
+    "install": "pip install -r requirements.txt",
+    "test": "python -m pytest tests/",
+    "analyze": "python -m pattern_miner.cli analyze",
+    "history": "python -m pattern_miner.cli history",
+    "template": "python -m pattern_miner.cli template",
+    "script": "python -m pattern_miner.cli script",
+    "full": "python -m pattern_miner.cli full",
+    "dev": "python -m pattern_miner.cli --help"
+  },
+  "keywords": [
+    "pattern",
+    "code-analysis",
+    "automation",
+    "template",
+    "productivity",
+    "refactoring"
+  ],
+  "author": "Pearl Workspace",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pearl-workspace/pattern-miner"
+  },
+  "dependencies": {
+    "jinja2": "^3.1.0"
+  },
+  "devDependencies": {
+    "pytest": "^7.0.0"
+  },
+  "engines": {
+    "python": ">=3.8",
+    "node": ">=16.0.0"
+  },
+  "bin": {
+    "pattern-miner": "./bin/pattern-miner"
+  },
+  "files": [
+    "pattern_miner/",
+    "templates/",
+    "bin/",
+    "requirements.txt",
+    "SKILL.md",
+    "README.md"
+  ]
+}
