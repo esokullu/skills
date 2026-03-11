@@ -17,6 +17,8 @@ description: |
 
 Never use `write` (full document replace) for partial edits — it destroys existing rich-text formatting (colors, highlights, inline styles). Always use targeted block-level operations.
 
+> Full decision tree (when to use update_block vs delete+insert vs append, with protection mechanisms) is in `~/self-improving/domains/feishu.md` under "最小改动原则".
+
 ## Strategy 1: Scan Once, Act in Parallel
 
 **Pattern:** One `list_blocks` → plan all changes → fire independent operations together.
@@ -137,6 +139,7 @@ When multiple agents or users may edit the same document simultaneously:
 | `write` to change a few paragraphs | `update_block` on specific blocks |
 | Serial update_block one-by-one | Batch independent ops in one tool-call |
 | `upload_image` without position params | Pass `parent_block_id` + `index`, or use `insert` with `![](url)` |
+| Parallel `upload_image` with `after_block_id` to different positions | Serial: append text → upload_image → append text → upload_image (API ignores after_block_id in parallel) |
 | Re-fetch `list_blocks` after every edit | Cache and reuse; re-fetch only after structural changes |
 | Insert top-to-bottom when mixing insert/delete | Back-to-front to avoid index drift |
 | Append 2000-line markdown in one call | Chunk at ~300–600 lines per append |

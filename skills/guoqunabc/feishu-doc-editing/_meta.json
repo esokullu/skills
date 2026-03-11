@@ -3,9 +3,15 @@
   "slug": "feishu-doc-editing",
   "displayName": "Feishu Doc Editing",
   "latest": {
-    "version": "1.1.0",
-    "publishedAt": 1772884107383,
-    "commit": "https://github.com/openclaw/skills/commit/c8d42eeb5f40849970f9e536bec2a0b1dd46c092"
+    "version": "1.1.1",
+    "publishedAt": 1773185641481,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.1.0",
+      "publishedAt": 1772884107383,
+      "commit": "https://github.com/openclaw/skills/commit/c8d42eeb5f40849970f9e536bec2a0b1dd46c092"
+    }
+  ]
 }
