@@ -1,0 +1,11 @@
+{
+  "owner": "cinience",
+  "slug": "alicloud-ai-audio-cosyvoice-voice-clone",
+  "displayName": "Alicloud Ai Audio Cosyvoice Voice Clone",
+  "latest": {
+    "version": "1.0.0",
+    "publishedAt": 1773221815008,
+    "commit": null
+  },
+  "history": []
+}
