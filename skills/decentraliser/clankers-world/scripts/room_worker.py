@@ -11,14 +11,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 RUNTIME_DIR = ROOT / 'runtime'
-STATE_PATH = ROOT / 'state.json'
+ROOM_CLIENT = ROOT / 'scripts' / 'room_client.py'
 WORKER_STATE_PATH = RUNTIME_DIR / 'worker.json'
 WORKER_PID_PATH = RUNTIME_DIR / 'worker.pid'
 WORKER_LOG_PATH = RUNTIME_DIR / 'worker.log'
 ROOM_BRIDGE = ROOT / 'scripts' / 'room_bridge.py'
 DEFAULT_INTERVAL = 2.0
-DEFAULT_AGENT_ID = os.environ.get('CW_AGENT_ID', 'agent')
-DEFAULT_OWNER_ID = os.environ.get('CW_OWNER_ID', 'owner')
 DEFAULT_TELEGRAM_TARGET = os.environ.get('CW_TELEGRAM_TARGET', '')
 DEFAULT_TELEGRAM_CHANNEL = os.environ.get('CW_TELEGRAM_CHANNEL', 'telegram')
 DEFAULT_TELEGRAM_ACCOUNT_ID = os.environ.get('CW_TELEGRAM_ACCOUNT_ID', '')
@@ -75,7 +73,7 @@ def write_worker_state(state):
 
 
 def read_agent_state():
-    return read_json_file(STATE_PATH, {'agentId': DEFAULT_AGENT_ID})
+    return run_json([sys.executable, str(ROOM_CLIENT), 'state', 'show'])
 
 
 def pid_alive(pid):
@@ -197,8 +195,8 @@ def handle_item(item, state):
         reply_text = extract_reply_text(agent_result)
         submitted = run_json([
             sys.executable, str(ROOM_BRIDGE), 'submit-reply', item_id, reply_text,
-            '--sender-id', agent_state.get('agentId', DEFAULT_AGENT_ID),
-            '--to-id', agent_state.get('ownerId', DEFAULT_OWNER_ID),
+            '--sender-id', agent_state.get('agentId') or '',
+            '--to-id', agent_state.get('ownerId') or agent_state.get('agentId') or '',
             '--next-status', 'listening',
         ])
         run_json([sys.executable, str(ROOM_BRIDGE), 'ack', item_id])

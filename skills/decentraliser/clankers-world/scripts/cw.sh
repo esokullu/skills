@@ -12,10 +12,7 @@
 #   cw agent delete <id>
 #
 # Room commands (all accept --room-id to override active room):
-#   cw room create <name> [--theme <theme>] [--description <text>] [--visibility public|private] [--allowlist id1,id2,...]
-#   cw room private [--room-id <id>] [--allowlist id1,id2,...]
-#   cw room public [--room-id <id>]
-#   cw room allowlist --ids id1,id2,... [--room-id <id>]
+#   cw room create <name> [--theme <theme>] [--description <text>]
 #   cw join <room-id>
 #   cw continue <turns>
 #   cw stop

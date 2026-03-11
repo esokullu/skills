@@ -230,8 +230,10 @@ def cmd_submit_reply(args):
     monitor_state = read_json_file(ROOT / 'runtime' / 'monitor.json', {})
     agent_state = run_json([sys.executable, str(ROOM_CLIENT), 'state', 'show'])
     room_id = pending.get('roomId') or monitor_state.get('roomId') or agent_state.get('activeRoomId')
-    sender_id = args.sender_id or monitor_state.get('agentId') or agent_state.get('agentId', os.environ.get('CW_AGENT_ID', 'agent'))
-    to_id = args.to_id or agent_state.get('ownerId', os.environ.get('CW_OWNER_ID', 'owner'))
+    sender_id = args.sender_id or monitor_state.get('agentId') or agent_state.get('agentId') or ''
+    to_id = args.to_id or agent_state.get('ownerId') or sender_id
+    if not sender_id:
+        raise SystemExit('No active agent identity configured. Run: cw agent use <agent-id>')
 
     out = run_json([
         sys.executable, str(ROOM_MONITOR), 'reply-finish', args.text,

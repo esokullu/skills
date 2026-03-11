@@ -12,15 +12,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-STATE_PATH = ROOT / 'state.json'
+ROOM_CLIENT = ROOT / 'scripts' / 'room_client.py'
 RUNTIME_DIR = ROOT / 'runtime'
 MONITOR_STATE_PATH = RUNTIME_DIR / 'monitor.json'
 PID_PATH = RUNTIME_DIR / 'monitor.pid'
 LOG_PATH = RUNTIME_DIR / 'monitor.log'
 DEFAULT_BASE = os.environ.get('CW_BASE_URL', 'http://127.0.0.1:18080')
-DEFAULT_AGENT_ID = os.environ.get('CW_AGENT_ID', 'agent')
-DEFAULT_DISPLAY_NAME = os.environ.get('CW_DISPLAY_NAME', 'Agent')
-DEFAULT_OWNER_ID = os.environ.get('CW_OWNER_ID', 'owner')
 DEFAULT_INTERVAL = 3.0
 DEFAULT_HEARTBEAT = 30.0
 QUEUE_LIMIT = 200
@@ -47,17 +44,41 @@ def read_json(method, url, payload=None):
         return json.loads(resp.read().decode())
 
 
-def read_agent_state():
-    if STATE_PATH.exists():
-        return json.loads(STATE_PATH.read_text())
-    return {
-        'baseUrl': DEFAULT_BASE,
-        'agentId': DEFAULT_AGENT_ID,
-        'displayName': DEFAULT_DISPLAY_NAME,
-        'ownerId': DEFAULT_OWNER_ID,
-        'maxContext': 1200,
-        'activeRoomId': None,
-    }
+def run_json_command(args):
+    proc = subprocess.run(args, capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or f'command failed: {args}')
+    out = proc.stdout.strip()
+    if not out:
+        return {}
+    lines = [ln for ln in out.splitlines() if ln.strip()]
+    for i in range(len(lines)):
+        candidate = '\n'.join(lines[i:])
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+    raise RuntimeError(f'Expected JSON output, got: {out[:500]}')
+
+
+def run_room_client_json(*args):
+    return run_json_command([sys.executable, str(ROOM_CLIENT), *args])
+
+
+def read_agent_state(required=False):
+    try:
+        return run_json_command([sys.executable, str(ROOM_CLIENT), 'state', 'show'])
+    except RuntimeError:
+        if required:
+            raise SystemExit('No active agent identity configured. Run: cw agent use <agent-id>')
+        return {
+            'baseUrl': DEFAULT_BASE,
+            'agentId': '',
+            'displayName': '',
+            'ownerId': '',
+            'maxContext': 1200,
+            'activeRoomId': None,
+        }
 
 
 def default_monitor_state():
@@ -67,11 +88,11 @@ def default_monitor_state():
         'pid': None,
         'roomId': agent.get('activeRoomId'),
         'baseUrl': agent.get('baseUrl', DEFAULT_BASE),
-        'agentId': agent.get('agentId', DEFAULT_AGENT_ID),
+        'agentId': agent.get('agentId', ''),
         'intervalSec': DEFAULT_INTERVAL,
         'heartbeatSec': DEFAULT_HEARTBEAT,
         'mentionsOnly': False,
-        'lastEventCount': 0,
+        'lastEventCursor': 0,
         'queue': [],
         'queueApproxTokens': 0,
         'startedAt': None,
@@ -123,51 +144,68 @@ def current_pid():
         return None
 
 
-def fetch_events(base_url, room_id):
-    out = read_json('GET', f'{base_url}/rooms/{room_id}/events')
-    return out.get('events', [])
+def fetch_events_page(base_url, room_id, after=0, limit=None):
+    parts = []
+    if limit:
+        parts.append(f'limit={int(limit)}')
+    if after:
+        parts.append(f'after={int(after)}')
+    suffix = ('?' + '&'.join(parts)) if parts else ''
+    return read_json('GET', f'{base_url}/rooms/{room_id}/events{suffix}')
+
+
+def event_next_cursor(page, fallback_after=0):
+    pagination = page.get('pagination') or {}
+    next_cursor = pagination.get('nextCursor')
+    if isinstance(next_cursor, int):
+        return next_cursor
+    events = page.get('events') or []
+    seqs = [int(ev.get('seq') or 0) for ev in events if str(ev.get('seq') or '').strip()]
+    if seqs:
+        return max(seqs)
+    return int(fallback_after or 0)
+
+
+def event_latest_cursor(page):
+    pagination = page.get('pagination') or {}
+    latest = pagination.get('latestCursor')
+    if isinstance(latest, int):
+        return latest
+    return event_next_cursor(page, 0)
 
 
 def set_agent_status(base_url, room_id, agent_id, status):
     if not room_id or not agent_id:
         return None
-    return read_json('POST', f'{base_url}/rooms/{room_id}/agents/{agent_id}', {'status': status})
+    return run_room_client_json('set-status', status, '--room-id', room_id)
 
 
 def continue_agent(base_url, room_id, agent_id, turns):
     if not room_id or not agent_id:
         return None
-    return read_json('POST', f'{base_url}/rooms/{room_id}/agents/{agent_id}/continue', {'turns': turns})
+    return run_room_client_json('continue', str(turns), '--room-id', room_id)
 
 
 def pause_agent(base_url, room_id, agent_id):
     if not room_id or not agent_id:
         return None
-    return read_json('POST', f'{base_url}/rooms/{room_id}/agents/{agent_id}/pause', {})
+    return run_room_client_json('stop', '--room-id', room_id)
 
 
 def send_agent_message(base_url, room_id, sender_id, to_id, text):
     if not room_id or not sender_id:
         return None
-    payload = {
-        'senderId': sender_id,
-        'text': text,
-        'kind': 'agent',
-        'a2a': {
-            'protocol': 'cw.a2a.v1',
-            'from': {'agentId': sender_id},
-            'to': {'agentId': to_id or DEFAULT_OWNER_ID},
-            'type': 'chat',
-            'text': text,
-            'meta': {'channelMessage': True, 'surface': 'telegram'}
-        }
-    }
-    return read_json('POST', f'{base_url}/rooms/{room_id}/messages', payload)
+    args = ['send', text, '--room-id', room_id, '--kind', 'agent']
+    if sender_id:
+        args += ['--sender-id', sender_id]
+    if to_id:
+        args += ['--a2a-to', to_id]
+    return run_room_client_json(*args)
 
 
-def filter_channel_messages(events, mentions_only=False, agent_id=DEFAULT_AGENT_ID):
+def filter_channel_messages(events, mentions_only=False, agent_id=''):
     out = []
-    needle = '@' + str(agent_id or DEFAULT_AGENT_ID).lower()
+    needle = '@' + str(agent_id or '').lower()
     for ev in events:
         if ev.get('type') != 'message_posted':
             continue
@@ -175,7 +213,7 @@ def filter_channel_messages(events, mentions_only=False, agent_id=DEFAULT_AGENT_
         if payload.get('kind') != 'channel':
             continue
         text = str(payload.get('text') or '')
-        if mentions_only and needle not in text.lower():
+        if mentions_only and (not needle or needle not in text.lower()):
             continue
         out.append(payload)
     return out
@@ -255,7 +293,7 @@ def heartbeat_due(state):
 
 def heartbeat_summary(state):
     return (
-        f"[cw heartbeat] {state.get('agentId', 'agent')} {state.get('agentStatus', 'listening')}"
+        f"[cw heartbeat] {state.get('agentId') or 'unconfigured-agent'} {state.get('agentStatus', 'listening')}"
         f" • room {state.get('roomId') or '-'}"
         f" • queue {len(state.get('queue', []))} msgs"
         f" • ~{state.get('queueApproxTokens', 0)} tok"
@@ -307,7 +345,7 @@ def cmd_next(args):
         state['preparedBatch'] = prepared
         write_monitor_state(state)
         try:
-            set_agent_status(state.get('baseUrl', DEFAULT_BASE), room_id, state.get('agentId', DEFAULT_AGENT_ID), 'thinking')
+            set_agent_status(state.get('baseUrl', DEFAULT_BASE), room_id, state.get('agentId') or '', 'thinking')
         except Exception as e:
             append_log({'ts': now_iso(), 'type': 'status_error', 'error': str(e), 'status': 'thinking'})
         prompt_lines = [f"{m.get('sender')}: {m.get('text')}" for m in selected]
@@ -369,13 +407,13 @@ def cmd_start(args):
         except FileNotFoundError:
             pass
 
-    agent = read_agent_state()
+    agent = read_agent_state(required=True)
     room_id = args.room_id or agent.get('activeRoomId')
     if not room_id:
         raise SystemExit('No active room')
     base_url = agent.get('baseUrl', DEFAULT_BASE)
     agent_id = agent.get('agentId', DEFAULT_AGENT_ID)
-    events = fetch_events(base_url, room_id)
+    probe = fetch_events_page(base_url, room_id, after=0, limit=1)
 
     state = read_monitor_state()
     state.update({
@@ -387,7 +425,7 @@ def cmd_start(args):
         'intervalSec': args.interval,
         'heartbeatSec': args.heartbeat_sec,
         'mentionsOnly': args.mentions_only,
-        'lastEventCount': len(events) if args.from_now else int(state.get('lastEventCount', 0) or 0),
+        'lastEventCursor': event_latest_cursor(probe) if args.from_now else int(state.get('lastEventCursor', 0) or 0),
         'startedAt': now_iso(),
         'stoppedAt': None,
         'lastPollAt': None,
@@ -427,7 +465,7 @@ def cmd_stop(args):
         state['agentStatus'] = 'paused'
         write_monitor_state(state)
         try:
-            set_agent_status(state.get('baseUrl', DEFAULT_BASE), state.get('roomId'), state.get('agentId', DEFAULT_AGENT_ID), 'paused')
+            set_agent_status(state.get('baseUrl', DEFAULT_BASE), state.get('roomId'), state.get('agentId') or '', 'paused')
         except Exception:
             pass
         print(json.dumps({'ok': True, 'action': 'monitor-stop', 'running': False, 'stopped': False, 'reason': 'not running'}, indent=2))
@@ -455,7 +493,7 @@ def cmd_stop(args):
     state['agentStatus'] = 'paused'
     write_monitor_state(state)
     try:
-        set_agent_status(state.get('baseUrl', DEFAULT_BASE), state.get('roomId'), state.get('agentId', DEFAULT_AGENT_ID), 'paused')
+        set_agent_status(state.get('baseUrl', DEFAULT_BASE), state.get('roomId'), state.get('agentId') or '', 'paused')
     except Exception:
         pass
     print(json.dumps({'ok': True, 'action': 'monitor-stop', 'running': False, 'stopped': stopped}, indent=2))
@@ -486,7 +524,7 @@ def cmd_drain(args):
     state['preparedBatch'] = prepared
     write_monitor_state(state)
     try:
-        set_agent_status(state.get('baseUrl', DEFAULT_BASE), state.get('roomId'), state.get('agentId', DEFAULT_AGENT_ID), 'thinking')
+        set_agent_status(state.get('baseUrl', DEFAULT_BASE), state.get('roomId'), state.get('agentId') or '', 'thinking')
     except Exception:
         pass
     prompt_lines = [f"{m.get('sender')}: {m.get('text')}" for m in selected]
@@ -511,11 +549,11 @@ def cmd_pause(args):
     write_monitor_state(state)
     participant = None
     try:
-        participant = pause_agent(state.get('baseUrl', DEFAULT_BASE), state.get('roomId'), state.get('agentId', DEFAULT_AGENT_ID))
+        participant = pause_agent(state.get('baseUrl', DEFAULT_BASE), state.get('roomId'), state.get('agentId') or '')
     except Exception as e:
         append_log({'ts': now_iso(), 'type': 'pause_error', 'error': str(e)})
     try:
-        set_agent_status(state.get('baseUrl', DEFAULT_BASE), state.get('roomId'), state.get('agentId', DEFAULT_AGENT_ID), 'paused')
+        set_agent_status(state.get('baseUrl', DEFAULT_BASE), state.get('roomId'), state.get('agentId') or '', 'paused')
     except Exception as e:
         append_log({'ts': now_iso(), 'type': 'status_error', 'error': str(e), 'status': 'paused'})
     append_log({'ts': now_iso(), 'type': 'monitor_paused', 'roomId': state.get('roomId'), 'queueLength': len(state.get('queue', [])), 'queueApproxTokens': state.get('queueApproxTokens', 0)})
@@ -530,7 +568,7 @@ def cmd_resume(args):
     turns = args.turns if args.turns is not None else 1
     participant = None
     try:
-        participant = continue_agent(state.get('baseUrl', DEFAULT_BASE), state.get('roomId'), state.get('agentId', DEFAULT_AGENT_ID), turns)
+        participant = continue_agent(state.get('baseUrl', DEFAULT_BASE), state.get('roomId'), state.get('agentId') or '', turns)
     except Exception as e:
         append_log({'ts': now_iso(), 'type': 'resume_error', 'error': str(e), 'turns': turns})
     selected, approx_total, dropped = trim_queue_for_context(queue, max_context)
@@ -541,7 +579,7 @@ def cmd_resume(args):
     state['preparedBatch'] = prepared
     write_monitor_state(state)
     try:
-        set_agent_status(state.get('baseUrl', DEFAULT_BASE), state.get('roomId'), state.get('agentId', DEFAULT_AGENT_ID), 'thinking')
+        set_agent_status(state.get('baseUrl', DEFAULT_BASE), state.get('roomId'), state.get('agentId') or '', 'thinking')
     except Exception as e:
         append_log({'ts': now_iso(), 'type': 'status_error', 'error': str(e), 'status': 'thinking'})
     append_log({'ts': now_iso(), 'type': 'monitor_resumed', 'roomId': state.get('roomId'), 'turns': turns, 'selectedCount': len(selected), 'droppedHeadCount': dropped, 'approxTokens': approx_total})
@@ -567,8 +605,8 @@ def cmd_reply_finish(args):
     state = read_monitor_state()
     agent = read_agent_state()
     room_id = args.room_id or state.get('roomId') or agent.get('activeRoomId')
-    agent_id = args.sender_id or state.get('agentId') or agent.get('agentId', DEFAULT_AGENT_ID)
-    to_id = args.to_id or agent.get('ownerId', DEFAULT_OWNER_ID)
+    agent_id = args.sender_id or state.get('agentId') or agent.get('agentId') or ''
+    to_id = args.to_id or agent.get('ownerId') or agent_id
     text = args.text.strip()
     if not room_id:
         raise SystemExit('No room provided')
@@ -621,7 +659,7 @@ def cmd_run(args):
         'pid': pid,
         'roomId': args.room_id or state.get('roomId') or read_agent_state().get('activeRoomId'),
         'baseUrl': read_agent_state().get('baseUrl', state.get('baseUrl', DEFAULT_BASE)),
-        'agentId': read_agent_state().get('agentId', state.get('agentId', DEFAULT_AGENT_ID)),
+        'agentId': read_agent_state().get('agentId') or state.get('agentId') or '',
         'intervalSec': args.interval,
         'heartbeatSec': args.heartbeat_sec,
         'mentionsOnly': args.mentions_only,
@@ -642,11 +680,9 @@ def cmd_run(args):
             state['queueApproxTokens'] = fresh.get('queueApproxTokens', state.get('queueApproxTokens', 0))
             state['heartbeatSec'] = fresh.get('heartbeatSec', state.get('heartbeatSec', DEFAULT_HEARTBEAT))
             state['mentionsOnly'] = fresh.get('mentionsOnly', state.get('mentionsOnly', args.mentions_only))
-            events = fetch_events(state['baseUrl'], state['roomId'])
-            last_count = int(state.get('lastEventCount', 0) or 0)
-            if last_count < 0 or last_count > len(events):
-                last_count = len(events)
-            new_events = events[last_count:]
+            last_cursor = int(state.get('lastEventCursor', 0) or 0)
+            page = fetch_events_page(state['baseUrl'], state['roomId'], after=last_cursor)
+            new_events = page.get('events', [])
             msgs = filter_channel_messages(new_events, mentions_only=state.get('mentionsOnly', args.mentions_only), agent_id=state.get('agentId', DEFAULT_AGENT_ID))
             if msgs:
                 enqueue_messages(state, msgs)
@@ -654,7 +690,9 @@ def cmd_run(args):
                     append_log({'ts': now_iso(), 'type': 'new_channel_message', 'roomId': state['roomId'], 'message': msg})
                 state['lastMessageAt'] = msgs[-1].get('createdAt')
                 state['lastMessageText'] = msgs[-1].get('text')
-            state['lastEventCount'] = len(events)
+            state['lastEventCursor'] = event_next_cursor(page, last_cursor)
+            if (page.get('pagination') or {}).get('gap'):
+                append_log({'ts': now_iso(), 'type': 'cursor_gap', 'roomId': state['roomId'], 'after': last_cursor, 'pagination': page.get('pagination')})
             state['lastPollAt'] = now_iso()
             if state.get('heartbeatSec', DEFAULT_HEARTBEAT) > 0:
                 last_hb = state.get('lastHeartbeatAt')
@@ -695,7 +733,7 @@ def cmd_run(args):
     except FileNotFoundError:
         pass
     try:
-        set_agent_status(state.get('baseUrl', DEFAULT_BASE), state.get('roomId'), state.get('agentId', DEFAULT_AGENT_ID), 'paused')
+        set_agent_status(state.get('baseUrl', DEFAULT_BASE), state.get('roomId'), state.get('agentId') or '', 'paused')
     except Exception:
         pass
     append_log({'ts': now_iso(), 'type': 'monitor_stopped', 'pid': pid, 'roomId': state.get('roomId')})
