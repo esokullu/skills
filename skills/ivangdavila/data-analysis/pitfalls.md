@@ -4,11 +4,11 @@
 
 **What it is:** A trend that appears in aggregated data reverses when you segment by a key variable.
 
-**Example:** 
-- Overall: Treatment A has 80% success, Treatment B has 85% → "B is better"
+**Example:**
+- Overall: Treatment A has 80% success, Treatment B has 85% -> "B is better"
 - But segmented by severity:
-  - Mild cases: A=90%, B=85% → A is better
-  - Severe cases: A=70%, B=65% → A is better
+  - Mild cases: A=90%, B=85% -> A is better
+  - Severe cases: A=70%, B=65% -> A is better
 - Paradox: A is better in BOTH groups, but B looks better overall because B got more mild cases
 
 **How to catch:** Always segment by obvious confounders (user type, time period, source, severity) before concluding.
@@ -20,7 +20,7 @@
 **What it is:** Drawing conclusions only from "survivors" while ignoring those who dropped out.
 
 **Example:**
-- "Users who completed onboarding have 80% retention!" 
+- "Users who completed onboarding have 80% retention!"
 - Problem: You're only looking at users who already demonstrated commitment by completing onboarding
 - The 60% who abandoned onboarding aren't in your "user" dataset
 
@@ -37,7 +37,7 @@
 - Holiday week vs normal week traffic
 - Q4 (holiday season) vs Q1 for e-commerce
 
-**How to catch:** 
+**How to catch:**
 - Normalize to per-day, per-user, or per-session
 - Compare same period last year (YoY) not sequential months
 - Flag seasonal factors explicitly
@@ -54,7 +54,7 @@
 - Report: "Segment X shows significant improvement!" (cherry-picked)
 
 **How to catch:**
-- Apply Bonferroni correction (divide α by number of tests)
+- Apply Bonferroni correction (divide alpha by number of tests)
 - Pre-register hypotheses before looking at data
 - Report ALL tests run, not just significant ones
 
@@ -111,7 +111,7 @@
 **What it is:** Assuming X causes Y when the relationship might be: Y causes X, Z causes both, or it's coincidental.
 
 **Example:**
-- "Power users have higher retention" 
+- "Power users have higher retention"
 - Did power usage cause retention? Or did retained users become power users over time? Or does a third factor (job role) drive both?
 
 **How to catch:**

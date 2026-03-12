@@ -14,11 +14,11 @@
 
 **Key outputs:**
 - p-value (probability of seeing this difference by chance)
-- Effect size (how big is the difference — Cohen's d, odds ratio)
+- Effect size (how big is the difference - Cohen's d, odds ratio)
 - Confidence interval (range of plausible true values)
 
 **Watch out for:**
-- Large samples make everything "significant" — focus on effect size
+- Large samples make everything "significant" - focus on effect size
 - Multiple comparisons inflate false positives
 - Normality assumptions (use non-parametric if violated)
 
@@ -56,7 +56,7 @@
 **Use when:** Understanding conversion through a multi-step process.
 
 **Setup:**
-1. Define stages (visit → signup → activate → purchase)
+1. Define stages (visit -> signup -> activate -> purchase)
 2. Count users at each stage
 3. Calculate drop-off rates between stages
 
