@@ -139,7 +139,54 @@ All features verified end-to-end with RDKit 2024.03+:
 - `scripts/rdkit_reaction.py` — Legacy reaction module
 - `scripts/chembl_query.py`, `scripts/pubmed_search.py`, `scripts/admet_predict.py` — Additional query modules
 
+### `scripts/advanced_chem.py`
+Advanced cheminformatics engine with 6 Tier 1 capabilities.
+
+```
+--action <standardize|descriptors|scaffold|mcs|mmpa|chemspace> --smiles <SMILES> [options]
+```
+
+| Action | Description | Key Args |
+|--------|-------------|----------|
+| standardize | Salt stripping, charge normalization, tautomer enumeration | `--smiles` |
+| descriptors | 217+ molecular descriptors (RDKit full set), QED, SA Score, Lipinski/Veber rules | `--smiles --descriptor_set all\|druglike\|physical\|topological` |
+| scaffold | Murcko scaffold extraction, generic scaffolds, diversity analysis, R-group decomposition | `--smiles` or `--target_smiles "smi1,smi2,..."` `--rgroup_core <SMARTS>` |
+| mcs | Maximum Common Substructure across 2+ molecules | `--target_smiles "smi1,smi2,..."` |
+| mmpa | Matched Molecular Pair Analysis — find single-point transformations | `--target_smiles "smi1,smi2,..."` |
+| chemspace | Chemical space visualization (PCA/t-SNE/UMAP scatter plot PNG) | `--target_smiles "smi1,smi2,..." --method pca\|tsne\|umap --output plot.png` |
+
+**Examples:**
+```bash
+# Standardize a salt form
+python scripts/advanced_chem.py --action standardize --smiles "[Na+].CC(=O)[O-]"
+
+# Full descriptors (217+)
+python scripts/advanced_chem.py --action descriptors --smiles "CC(=O)Oc1ccccc1C(=O)O" --descriptor_set all
+
+# Scaffold diversity of a set
+python scripts/advanced_chem.py --action scaffold --target_smiles "CC(=O)Oc1ccccc1C(=O)O,CN1C=NC2=C1C(=O)N(C(=O)N2C)C,CC(C)Cc1ccc(cc1)C(C)C(=O)O"
+
+# MCS of aspirin and salicylic acid
+python scripts/advanced_chem.py --action mcs --target_smiles "CC(=O)Oc1ccccc1C(=O)O,c1ccccc1C(=O)O"
+
+# Matched molecular pairs
+python scripts/advanced_chem.py --action mmpa --target_smiles "c1ccc(CC(=O)O)cc1,c1ccc(CCC(=O)O)cc1"
+
+# Chemical space PCA plot
+python scripts/advanced_chem.py --action chemspace --target_smiles "CC(=O)Oc1ccccc1C(=O)O,CN1C=NC2=C1C(=O)N(C(=O)N2C)C,c1ccccc1" --method pca --output space.png
+```
+
 ## Changelog
+
+**v2.0.0** (2026-02-28)
+- NEW: `advanced_chem.py` with 6 Tier 1 cheminformatics capabilities
+  - Molecular Standardization & Tautomer Enumeration (salt stripping, charge normalization, canonical tautomers)
+  - Extended Descriptors (217+ RDKit descriptors, QED, SA Score, Lipinski, Veber)
+  - Scaffold Analysis (Murcko, generic scaffolds, diversity ratio, R-group decomposition)
+  - Maximum Common Substructure (rdFMCS with coverage per molecule)
+  - Matched Molecular Pair Analysis (rdMMPA fragmentation, transformation detection)
+  - Chemical Space Visualization (PCA/t-SNE/UMAP with matplotlib scatter plots)
+- Dependencies: scikit-learn, matplotlib (added)
 
 **v1.4.1** (2026-02-25)
 - Security hardening: input sanitization for all subprocess calls (SMILES, compound names, output paths)

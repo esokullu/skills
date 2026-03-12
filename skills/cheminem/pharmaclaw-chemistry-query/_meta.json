@@ -1,13 +1,18 @@
 {
   "owner": "cheminem",
   "slug": "pharmaclaw-chemistry-query",
-  "displayName": "PharmaClaw Chemistry Query",
+  "displayName": "Pharmaclaw Chemistry Query",
   "latest": {
-    "version": "2.0.0",
-    "publishedAt": 1772427303450,
-    "commit": "https://github.com/openclaw/skills/commit/d0c3ebf9b81ba1141f6a70fdc31ab9a61194ba44"
+    "version": "2.0.1",
+    "publishedAt": 1773252933082,
+    "commit": null
   },
   "history": [
+    {
+      "version": "2.0.0",
+      "publishedAt": 1772427303450,
+      "commit": "https://github.com/openclaw/skills/commit/d0c3ebf9b81ba1141f6a70fdc31ab9a61194ba44"
+    },
     {
       "version": "1.4.1",
       "publishedAt": 1772051528098,

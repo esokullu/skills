@@ -10,6 +10,8 @@ from rdkit.Chem import Descriptors, Draw, AllChem
 from rdkit.Chem import BRICS
 from rdkit.Chem.Draw import rdMolDraw2D
 from rdkit.Chem import rdChemReactions
+from rdkit.Chem import rdMolStandardize, rdFMCS, rdMMPA
+from rdkit.Chem.Scaffolds import MurckoScaffold
 
 def _sanitize_input(value, label="input", max_len=2000):
     """Sanitize user input: length limit and null-byte rejection."""
@@ -38,7 +40,7 @@ def _sanitize_output_path(path, allowed_dir=None):
             raise ValueError(f"Invalid output path: absolute paths not allowed without allowed_dir")
     # Only allow safe extensions
     _, ext = os.path.splitext(path)
-    if ext.lower() not in ('.png', '.svg', '.json', '.xyz', '.txt', ''):
+    if ext.lower() not in ('.png', '.svg', '.json', '.xyz', '.txt', '.csv', ''):
         raise ValueError(f"Invalid output extension: {ext}")
     return path
 
@@ -103,7 +105,11 @@ def main():
     parser.add_argument("--depth", type=int, default=1, help="Retro depth")
     parser.add_argument("--steps", type=int, default=3, help="Plan steps")
     parser.add_argument("--templates", help="Comma-separated template names filter")
-    parser.add_argument("--action", choices=["props", "draw", "fingerprint", "similarity", "substruct", "xyz", "react", "retro", "plan"], default="props", help="Action")
+    parser.add_argument("--action", choices=["props", "draw", "fingerprint", "similarity", "substruct", "xyz", "react", "retro", "plan", "standardize", "descriptors", "scaffold", "mcs", "mmpa", "chemspace"], default="props", help="Action")
+    parser.add_argument("--descriptor_set", choices=["all", "druglike", "physical", "topological"], default="all", help="Descriptor set for descriptors action")
+    parser.add_argument("--rgroup_core", help="SMARTS for R-group decomposition core (scaffold action)")
+    parser.add_argument("--method", choices=["pca", "tsne", "umap"], default="pca", help="Dimensionality reduction method for chemspace")
+    parser.add_argument("--input_file", help="Input file with one SMILES per line (chemspace action)")
     parser.add_argument("--output", help="Output file for draw")
     parser.add_argument("--format", choices=["png", "svg"], default="png", help="Draw format")
     parser.add_argument("--radius", type=int, default=2, help="Morgan radius")
