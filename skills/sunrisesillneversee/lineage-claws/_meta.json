@@ -3,11 +3,16 @@
   "slug": "lineage-claws",
   "displayName": "Lineage Clause by MO§ES™",
   "latest": {
-    "version": "0.1.4",
-    "publishedAt": 1773347797184,
-    "commit": "https://github.com/openclaw/skills/commit/6b48e38df21eb74d90c521fdf6ccd60986bcc5ef"
+    "version": "0.1.5",
+    "publishedAt": 1773347866834,
+    "commit": null
   },
   "history": [
+    {
+      "version": "0.1.4",
+      "publishedAt": 1773347797184,
+      "commit": "https://github.com/openclaw/skills/commit/6b48e38df21eb74d90c521fdf6ccd60986bcc5ef"
+    },
     {
       "version": "0.1.3",
       "publishedAt": 1773347373727,
