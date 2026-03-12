@@ -1,0 +1,11 @@
+{
+  "owner": "parkertoddbrooks",
+  "slug": "deploy-public",
+  "displayName": "Deploy Public",
+  "latest": {
+    "version": "1.9.4",
+    "publishedAt": 1773289467949,
+    "commit": null
+  },
+  "history": []
+}
