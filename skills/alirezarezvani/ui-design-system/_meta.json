@@ -3,11 +3,16 @@
   "slug": "ui-design-system",
   "displayName": "Ui Design System",
   "latest": {
-    "version": "1.0.0",
-    "publishedAt": 1770402590748,
-    "commit": "https://github.com/openclaw/skills/commit/04cb069683e02e0c94e14cfeb2a8b83e1a470376"
+    "version": "2.1.1",
+    "publishedAt": 1773070362553,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1770402590748,
+      "commit": "https://github.com/openclaw/skills/commit/04cb069683e02e0c94e14cfeb2a8b83e1a470376"
+    },
     {
       "version": "0.1.0",
       "publishedAt": 1769736935029,
