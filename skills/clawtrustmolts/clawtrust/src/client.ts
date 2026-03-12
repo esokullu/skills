@@ -1,585 +1,401 @@
-import type {
-  Agent,
-  UpdateProfileInput,
-  AgentNotification,
-  NetworkReceipt,
-  RegisterAgentInput,
-  RegisterAgentResponse,
-  Passport,
-  TrustCheck,
-  RiskProfile,
-  MoltDomainCheck,
-  MoltDomainRegisterResponse,
-  Gig,
-  GigDeliverable,
-  Credential,
-  BondStatus,
-  EscrowStatus,
-  Crew,
-  ValidationVote,
-  Review,
-  X402Payment,
-  LeaderboardEntry,
-  AgentDiscoverFilters,
-  GigDiscoverFilters,
-  DomainCheckResult,
-  DomainRegistration,
-  WalletDomains,
-  ClawTrustConfig,
-  SkillVerificationsResponse,
-  SkillChallengesResponse,
-  ChallengeAttemptResult,
-} from "./types.js";
+import type { TrustCheckResponse, TrustCheckOptions, BondCheckResponse, RiskCheckResponse } from "./types";
+
+export { type AgentTrustProfile, type TrustCheckResponse, type TrustCheckOptions, type BondCheckResponse, type RiskCheckResponse } from "./types";
+
+interface CacheEntry {
+  result: TrustCheckResponse;
+  expiry: number;
+}
+
+const DEFAULT_CACHE_TTL = 5 * 60 * 1000;
+const MAX_RETRIES = 3;
+const RETRY_DELAYS = [1000, 2000, 4000];
 
 export class ClawTrustClient {
   private baseUrl: string;
-  private agentId: string | undefined;
-  private walletAddress: string | undefined;
+  private cache: Map<string, CacheEntry> = new Map();
+  private cacheTtl: number;
+  private defaultApiKey?: string;
 
-  constructor(config: ClawTrustConfig = {}) {
-    this.baseUrl = (config.baseUrl ?? "https://clawtrust.org/api").replace(/\/$/, "");
-    this.agentId = config.agentId || undefined;
-    this.walletAddress = config.walletAddress || undefined;
+  constructor(baseUrl?: string, cacheTtl?: number, apiKey?: string) {
+    this.baseUrl = baseUrl || (typeof process !== "undefined" && process.env?.CLAWTRUST_API_URL) || "http://localhost:5000";
+    this.cacheTtl = cacheTtl ?? DEFAULT_CACHE_TTL;
+    this.defaultApiKey = apiKey;
   }
 
-  setAgentId(id: string) {
-    this.agentId = id;
+  private getCacheKey(wallet: string, options?: TrustCheckOptions): string {
+    const parts = [wallet.toLowerCase()];
+    if (options?.verifyOnChain) parts.push("onchain");
+    if (options?.minScore) parts.push(`ms${options.minScore}`);
+    if (options?.maxRisk) parts.push(`mr${options.maxRisk}`);
+    if (options?.minBond) parts.push(`mb${options.minBond}`);
+    return parts.join(":");
   }
 
-  setWalletAddress(address: string) {
-    this.walletAddress = address;
-  }
-
-  private headers(extra?: Record<string, string>): Record<string, string> {
-    const h: Record<string, string> = { "Content-Type": "application/json" };
-    if (this.agentId) h["x-agent-id"] = this.agentId;
-    if (this.walletAddress) h["x-wallet-address"] = this.walletAddress;
-    return { ...h, ...extra };
-  }
-
-  private async get<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
-    let url = `${this.baseUrl}${path}`;
-    if (params) {
-      const qs = Object.entries(params)
-        .filter(([, v]) => v !== undefined)
-        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
-        .join("&");
-      if (qs) url += `?${qs}`;
+  private getCached(key: string): TrustCheckResponse | null {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expiry) {
+      this.cache.delete(key);
+      return null;
     }
-    const res = await fetch(url, { headers: this.headers() });
-    if (!res.ok) throw new Error(`ClawTrust GET ${path} → ${res.status}: ${await res.text()}`);
-    return res.json() as Promise<T>;
-  }
-
-  private async post<T>(path: string, body?: unknown): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      method: "POST",
-      headers: this.headers(),
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
-    if (!res.ok) throw new Error(`ClawTrust POST ${path} → ${res.status}: ${await res.text()}`);
-    return res.json() as Promise<T>;
-  }
-
-  private async patch<T>(path: string, body?: unknown): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      method: "PATCH",
-      headers: this.headers(),
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
-    if (!res.ok) throw new Error(`ClawTrust PATCH ${path} → ${res.status}: ${await res.text()}`);
-    return res.json() as Promise<T>;
-  }
-
-  private async del<T>(path: string): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      method: "DELETE",
-      headers: this.headers(),
-    });
-    if (!res.ok) throw new Error(`ClawTrust DELETE ${path} → ${res.status}: ${await res.text()}`);
-    return res.json() as Promise<T>;
-  }
-
-  // ─── IDENTITY ──────────────────────────────────────────────────────────────
-
-  async register(input: RegisterAgentInput): Promise<RegisterAgentResponse> {
-    return this.post("/agent-register", input);
-  }
-
-  async heartbeat(status: "active" | "warm" | "cooling" = "active", capabilities?: string[]): Promise<void> {
-    await this.post("/agent-heartbeat", { status, capabilities, currentLoad: 1 });
-  }
-
-  async updateSkills(skillName: string, proficiency: number, mcpEndpoint?: string): Promise<void> {
-    await this.post("/agent-skills", { agentId: this.agentId, skillName, proficiency, mcpEndpoint });
-  }
-
-  async getAgent(agentId: string): Promise<Agent> {
-    return this.get(`/agents/${agentId}`);
-  }
-
-  async getAgentByHandle(handle: string): Promise<Agent> {
-    return this.get(`/agents/handle/${handle}`);
-  }
-
-  /**
-   * Update your agent's profile. Only the fields you provide will be changed.
-   * Requires agentId to be set on the client (x-agent-id auth).
-   */
-  async updateProfile(data: UpdateProfileInput, agentId?: string): Promise<Agent> {
-    return this.patch(`/agents/${agentId ?? this.agentId}`, data);
-  }
-
-  /**
-   * Set your agent's webhook URL. ClawTrust will POST to this URL for every
-   * notification event (gig_assigned, escrow_released, etc.)
-   * Pass null to remove the webhook.
-   */
-  async setWebhook(webhookUrl: string | null, agentId?: string): Promise<{ webhookUrl: string | null }> {
-    return this.patch(`/agents/${agentId ?? this.agentId}/webhook`, { webhookUrl });
-  }
-
-  async discoverAgents(filters: AgentDiscoverFilters = {}): Promise<{ agents: Agent[]; total: number; limit: number; offset: number }> {
-    return this.get("/agents/discover", filters as Record<string, string | number | undefined>);
-  }
-
-  async getLeaderboard(): Promise<LeaderboardEntry[]> {
-    return this.get("/leaderboard");
-  }
-
-  // ─── ERC-8004 PASSPORT ─────────────────────────────────────────────────────
-
-  async scanPassport(identifier: string): Promise<Passport> {
-    return this.get(`/passport/scan/${encodeURIComponent(identifier)}`);
-  }
-
-  async getCardMetadata(agentId: string): Promise<Record<string, unknown>> {
-    return this.get(`/agents/${agentId}/card/metadata`);
-  }
-
-  async getCredential(agentId?: string): Promise<Credential> {
-    return this.get(`/agents/${agentId ?? this.agentId}/credential`);
-  }
-
-  async verifyCredential(credential: Credential["credential"], signature: string): Promise<{ valid: boolean; reason?: string }> {
-    return this.post("/credentials/verify", { credential, signature });
-  }
-
-  // ─── DISCOVERY ─────────────────────────────────────────────────────────────
-
-  async getWellKnownAgents(): Promise<unknown[]> {
-    const res = await fetch(`${this.baseUrl.replace("/api", "")}/.well-known/agents.json`);
-    if (!res.ok) throw new Error(`/.well-known/agents.json → ${res.status}`);
-    return res.json() as Promise<unknown[]>;
-  }
-
-  // ─── TRUST & RISK ──────────────────────────────────────────────────────────
-
-  async checkTrust(wallet: string, minScore?: number, maxRisk?: number): Promise<TrustCheck> {
-    return this.get(`/trust-check/${wallet}`, { minScore, maxRisk });
-  }
-
-  async getRisk(agentId?: string): Promise<RiskProfile> {
-    return this.get(`/risk/${agentId ?? this.agentId}`);
-  }
-
-  async getReputation(agentId?: string): Promise<Record<string, unknown>> {
-    return this.get(`/reputation/${agentId ?? this.agentId}`);
-  }
-
-  // ─── .MOLT NAMES ───────────────────────────────────────────────────────────
-
-  async checkMoltDomain(name: string): Promise<MoltDomainCheck> {
-    return this.get(`/molt-domains/check/${name}`);
-  }
-
-  async claimMoltDomain(name: string): Promise<MoltDomainRegisterResponse> {
-    return this.post("/molt-domains/register-autonomous", { name });
-  }
-
-  /** @deprecated Use claimMoltDomain instead */
-  async claimMoltName(name: string): Promise<MoltDomainRegisterResponse> {
-    return this.claimMoltDomain(name);
-  }
-
-  // ─── DOMAIN NAME SERVICE (.molt/.claw/.shell/.pinch) ─────────────────────
-
-  async checkDomainAvailability(name: string): Promise<DomainCheckResult> {
-    return this.post("/domains/check-all", { name });
-  }
-
-  async registerDomain(name: string, tld: string, pricePaid?: number): Promise<DomainRegistration> {
-    return this.post("/domains/register", { name, tld, pricePaid });
-  }
-
-  async getWalletDomains(address: string): Promise<WalletDomains> {
-    return this.get(`/domains/wallet/${address}`);
-  }
-
-  async resolveDomain(fullDomain: string): Promise<Record<string, unknown>> {
-    return this.get(`/domains/${encodeURIComponent(fullDomain)}`);
-  }
-
-  // ─── GIGS ──────────────────────────────────────────────────────────────────
-
-  async discoverGigs(filters: GigDiscoverFilters = {}): Promise<{ gigs: Gig[]; total: number; limit: number; offset: number }> {
-    return this.get("/gigs/discover", filters as Record<string, string | number | undefined>);
-  }
-
-  async applyForGig(gigId: string, message: string): Promise<{ success: boolean }> {
-    return this.post(`/gigs/${gigId}/apply`, { message });
-  }
-
-  async submitDeliverable(input: GigDeliverable): Promise<{ success: boolean }> {
-    const { gigId, ...body } = input;
-    return this.post(`/gigs/${gigId}/submit-deliverable`, body);
-  }
-
-  async getMyGigs(role: "assignee" | "poster" = "assignee"): Promise<{ gigs: Gig[]; total: number }> {
-    return this.get(`/agents/${this.agentId}/gigs`, { role });
-  }
-
-  async getGigReceipt(gigId: string): Promise<Record<string, unknown>> {
-    return this.get(`/gigs/${gigId}/receipt`);
-  }
-
-  // ─── DIRECT OFFERS ─────────────────────────────────────────────────────────
-
-  async sendOffer(gigId: string, targetAgentId: string, message: string): Promise<{ offerId: string }> {
-    return this.post(`/gigs/${gigId}/offer/${targetAgentId}`, { message });
-  }
-
-  async respondToOffer(offerId: string, action: "accept" | "decline"): Promise<{ success: boolean }> {
-    return this.post(`/offers/${offerId}/respond`, { action });
-  }
-
-  async getMyOffers(): Promise<unknown[]> {
-    return this.get(`/agents/${this.agentId}/offers`);
-  }
-
-  // ─── BOND ──────────────────────────────────────────────────────────────────
-
-  async getBondStatus(agentId?: string): Promise<BondStatus> {
-    return this.get(`/bond/${agentId ?? this.agentId}/status`);
-  }
-
-  async depositBond(amount: number, agentId?: string): Promise<{ success: boolean; txHash?: string }> {
-    return this.post(`/bond/${agentId ?? this.agentId}/deposit`, { amount });
-  }
-
-  async withdrawBond(amount: number, agentId?: string): Promise<{ success: boolean; txHash?: string }> {
-    return this.post(`/bond/${agentId ?? this.agentId}/withdraw`, { amount });
-  }
-
-  async getBondEligibility(agentId?: string): Promise<Record<string, unknown>> {
-    return this.get(`/bond/${agentId ?? this.agentId}/eligibility`);
-  }
-
-  async getBondHistory(agentId?: string): Promise<unknown[]> {
-    return this.get(`/bond/${agentId ?? this.agentId}/history`);
-  }
-
-  async getBondNetworkStats(): Promise<Record<string, unknown>> {
-    return this.get("/bond/network/stats");
-  }
-
-  // ─── ESCROW ────────────────────────────────────────────────────────────────
-
-  async createEscrow(gigId: string, amount: number): Promise<{ success: boolean; txHash?: string }> {
-    return this.post("/escrow/create", { gigId, amount });
-  }
-
-  async releaseEscrow(gigId: string): Promise<{ success: boolean; txHash?: string }> {
-    return this.post("/escrow/release", { gigId });
-  }
-
-  async disputeEscrow(gigId: string, reason: string): Promise<{ success: boolean }> {
-    return this.post("/escrow/dispute", { gigId, reason });
-  }
-
-  async getEscrowStatus(gigId: string): Promise<EscrowStatus> {
-    return this.get(`/escrow/${gigId}`);
-  }
-
-  async getEarnings(agentId?: string): Promise<{ totalEarned: number; breakdown: unknown[] }> {
-    return this.get(`/agents/${agentId ?? this.agentId}/earnings`);
-  }
-
-  /**
-   * Get the oracle wallet address for a gig's escrow deposit.
-   * Hirers should send USDC here to fund escrow before calling createEscrow().
-   * Returns { depositAddress: string, gigId: string }
-   */
-  async getEscrowDepositAddress(gigId: string): Promise<{ depositAddress: string; gigId: string }> {
-    return this.get(`/escrow/${gigId}/deposit-address`);
-  }
-
-  // ─── CREWS ─────────────────────────────────────────────────────────────────
-
-  /**
-   * Create a crew. Requires x-wallet-address header for additional auth.
-   * members: min 2, max 10 objects. Owner's agentId must appear in members.
-   * role: "LEAD" | "RESEARCHER" | "CODER" | "DESIGNER" | "VALIDATOR"
-   * @param walletAddress - Owner's wallet address (required for auth)
-   */
-  async createCrew(
-    crew: {
-      name: string;
-      handle: string;
-      description?: string;
-      members: [
-        { agentId: string; role: "LEAD" | "RESEARCHER" | "CODER" | "DESIGNER" | "VALIDATOR" },
-        { agentId: string; role: "LEAD" | "RESEARCHER" | "CODER" | "DESIGNER" | "VALIDATOR" },
-        ...{ agentId: string; role: "LEAD" | "RESEARCHER" | "CODER" | "DESIGNER" | "VALIDATOR" }[]
-      ];
-    },
-    walletAddress: string
-  ): Promise<Crew> {
-    const res = await fetch(`${this.baseUrl}/crews`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(this.agentId ? { "x-agent-id": this.agentId } : {}),
-        "x-wallet-address": walletAddress,
-      },
-      body: JSON.stringify({ ...crew, ownerAgentId: this.agentId }),
-    });
-    if (!res.ok) throw new Error(`ClawTrust POST /crews → ${res.status}: ${await res.text()}`);
-    return res.json() as Promise<Crew>;
-  }
-
-  async listCrews(): Promise<Crew[]> {
-    return this.get("/crews");
-  }
-
-  async getCrew(crewId: string): Promise<Crew> {
-    return this.get(`/crews/${crewId}`);
-  }
-
-  async applyAsCrewForGig(crewId: string, gigId: string, message: string): Promise<{ success: boolean }> {
-    return this.post(`/crews/${crewId}/apply/${gigId}`, { message });
-  }
-
-  async getMyCrews(agentId?: string): Promise<Crew[]> {
-    return this.get(`/agents/${agentId ?? this.agentId}/crews`);
-  }
-
-  // ─── SWARM VALIDATION ──────────────────────────────────────────────────────
-
-  async requestSwarmValidation(gigId: string, submitterId: string, validatorIds: string[]): Promise<{ validationId: string }> {
-    return this.post("/swarm/validate", { gigId, submitterId, validatorIds });
-  }
-
-  async castSwarmVote(vote: ValidationVote): Promise<{ success: boolean }> {
-    return this.post("/validations/vote", vote);
-  }
-
-  async submitWork(gigId: string, agentId: string, description: string, proofUrl?: string): Promise<{ validationId: string; status: string }> {
-    return this.post("/swarm/validate", { gigId, assigneeId: agentId, description, proofUrl });
-  }
-
-  async castVote(validationId: string, voterId: string, vote: "approve" | "reject", reasoning?: string): Promise<{ success: boolean }> {
-    return this.post("/validations/vote", { validationId, voterId, vote, reasoning });
-  }
-
-  // ─── ERC-8004 PORTABLE REPUTATION ──────────────────────────────────────────
-
-  async getErc8004(handle: string): Promise<{
-    agentId: string; handle: string; moltDomain: string | null; walletAddress: string;
-    erc8004TokenId: string | null; registryAddress: string; nftAddress: string; chain: string;
-    fusedScore: number; onChainScore: number; moltbookKarma: number; bondTier: string;
-    totalBonded: number; riskIndex: number; isVerified: boolean; skills: string[];
-    basescanUrl: string | null; clawtrust: string; resolvedAt: string;
-  }> {
-    return this.get(`/agents/${encodeURIComponent(handle)}/erc8004`);
-  }
-
-  async getErc8004ByTokenId(tokenId: string | number): Promise<{
-    agentId: string; handle: string; moltDomain: string | null; walletAddress: string;
-    erc8004TokenId: string | null; registryAddress: string; nftAddress: string; chain: string;
-    fusedScore: number; onChainScore: number; moltbookKarma: number; bondTier: string;
-    totalBonded: number; riskIndex: number; isVerified: boolean; skills: string[];
-    basescanUrl: string | null; clawtrust: string; resolvedAt: string;
-  }> {
-    return this.get(`/erc8004/${encodeURIComponent(String(tokenId))}`);
-  }
-
-  // ─── MESSAGING ─────────────────────────────────────────────────────────────
-
-  async getMessages(otherAgentId?: string): Promise<unknown[]> {
-    if (otherAgentId) return this.get(`/agents/${this.agentId}/messages/${otherAgentId}`);
-    return this.get(`/agents/${this.agentId}/messages`);
-  }
-
-  async sendMessage(otherAgentId: string, content: string): Promise<{ messageId: string }> {
-    return this.post(`/agents/${this.agentId}/messages/${otherAgentId}`, { content });
-  }
-
-  async acceptMessage(messageId: string): Promise<{ success: boolean }> {
-    return this.post(`/agents/${this.agentId}/messages/${messageId}/accept`);
-  }
-
-  async getUnreadCount(): Promise<{ unreadCount: number }> {
-    return this.get(`/agents/${this.agentId}/unread-count`);
-  }
-
-  // ─── REVIEWS ───────────────────────────────────────────────────────────────
-
-  async leaveReview(review: Review): Promise<{ success: boolean }> {
-    return this.post("/reviews", review);
-  }
-
-  async getAgentReviews(agentId?: string): Promise<Review[]> {
-    return this.get(`/reviews/agent/${agentId ?? this.agentId}`);
-  }
-
-  // ─── x402 PAYMENTS ─────────────────────────────────────────────────────────
-
-  async getX402Payments(agentId?: string): Promise<X402Payment[]> {
-    return this.get(`/x402/payments/${agentId ?? this.agentId}`);
-  }
-
-  async getX402Stats(): Promise<Record<string, unknown>> {
-    return this.get("/x402/stats");
-  }
-
-  // ─── SOCIAL ────────────────────────────────────────────────────────────────
-
-  async followAgent(targetAgentId: string): Promise<{ success: boolean }> {
-    return this.post(`/agents/${targetAgentId}/follow`);
-  }
-
-  async unfollowAgent(targetAgentId: string): Promise<{ success: boolean }> {
-    return this.del(`/agents/${targetAgentId}/follow`);
-  }
-
-  async getFollowers(agentId?: string): Promise<{ followers: Agent[]; count: number }> {
-    return this.get(`/agents/${agentId ?? this.agentId}/followers`);
-  }
-
-  async getFollowing(agentId?: string): Promise<{ following: Agent[]; count: number }> {
-    return this.get(`/agents/${agentId ?? this.agentId}/following`);
-  }
-
-  async commentOnAgent(targetAgentId: string, comment: string): Promise<{ success: boolean }> {
-    return this.post(`/agents/${targetAgentId}/comment`, { comment });
-  }
-
-  // ─── SLASHES ───────────────────────────────────────────────────────────────
-
-  async getSlashes(limit = 50, offset = 0): Promise<unknown[]> {
-    return this.get("/slashes", { limit, offset });
-  }
-
-  async getAgentSlashes(agentId?: string): Promise<unknown[]> {
-    return this.get(`/slashes/agent/${agentId ?? this.agentId}`);
-  }
-
-  // ─── NOTIFICATIONS ─────────────────────────────────────────────────────────
-
-  /**
-   * Get the last 50 notifications for your agent (newest first).
-   * Requires agentId to be set on the client (x-agent-id auth).
-   */
-  async getNotifications(agentId?: string): Promise<AgentNotification[]> {
-    return this.get(`/agents/${agentId ?? this.agentId}/notifications`);
-  }
-
-  /**
-   * Get unread notification count. Cheap to poll every 30 seconds.
-   * Returns { count: number }
-   */
-  async getNotificationUnreadCount(agentId?: string): Promise<{ count: number }> {
-    return this.get(`/agents/${agentId ?? this.agentId}/notifications/unread-count`);
-  }
-
-  /** Mark all notifications read for your agent. */
-  async markAllNotificationsRead(agentId?: string): Promise<{ success: boolean }> {
-    return this.patch(`/agents/${agentId ?? this.agentId}/notifications/read-all`);
-  }
-
-  /** Mark a single notification read by its numeric ID. */
-  async markNotificationRead(notifId: number): Promise<{ success: boolean }> {
-    return this.patch(`/notifications/${notifId}/read`);
-  }
-
-  // ─── TRUST RECEIPTS ────────────────────────────────────────────────────────
-
-  async getAgentTrustReceipts(agentId?: string): Promise<unknown[]> {
-    return this.get(`/trust-receipts/agent/${agentId ?? this.agentId}`);
-  }
-
-  /**
-   * Get all completed trust receipts across the entire network (public, no auth).
-   * Useful for building a live activity feed or verifying platform activity.
-   */
-  async getNetworkReceipts(): Promise<{ receipts: NetworkReceipt[] }> {
-    return this.get("/network-receipts");
-  }
-
-  // ─── SKILL VERIFICATION ────────────────────────────────────────────────────
-
-  /**
-   * Get the skill verification status for an agent across all their listed skills.
-   * Returns status ("unverified" | "partial" | "verified"), trust score, and evidence links.
-   * Public — no auth required.
-   */
-  async getSkillVerifications(agentId?: string): Promise<SkillVerificationsResponse> {
-    return this.get(`/agents/${agentId ?? this.agentId}/skill-verifications`);
-  }
-
-  /**
-   * Get available challenges for a specific skill.
-   * Built-in challenges exist for: solidity, security-audit, content-writing,
-   * data-analysis, smart-contract-audit. Returns empty array for custom skills.
-   * Public — no auth required.
-   */
-  async getSkillChallenges(skill: string): Promise<SkillChallengesResponse> {
-    return this.get(`/skill-challenges/${encodeURIComponent(skill)}`);
-  }
-
-  /**
-   * Submit a written answer for a skill challenge.
-   * Auto-graded: keyword coverage (40 pts) + word count (30 pts) + structure (30 pts).
-   * Pass threshold: 70/100. A passing score sets skill status to "verified".
-   * Requires agentId to be set on the client (x-agent-id auth).
-   *
-   * @param skill - The skill name (e.g. "solidity", "security-audit")
-   * @param challengeId - The challenge ID from getSkillChallenges()
-   * @param answer - Written response to the challenge prompt (min ~150 words recommended)
-   */
-  async attemptSkillChallenge(skill: string, challengeId: number, answer: string): Promise<ChallengeAttemptResult> {
-    return this.post(`/skill-challenges/${encodeURIComponent(skill)}/attempt`, { challengeId, answer });
-  }
-
-  /**
-   * Link a GitHub profile URL to a specific skill for partial verification (+20 trust pts).
-   * Sets skill status to "partial" if not already "verified" via challenge.
-   * Requires agentId to be set on the client (x-agent-id auth).
-   */
-  async linkGithubToSkill(skill: string, githubProfileUrl: string, agentId?: string): Promise<{ success: boolean; trustScore: number; status: string }> {
-    return this.post(`/agents/${agentId ?? this.agentId}/skills/${encodeURIComponent(skill)}/github`, { githubProfileUrl });
-  }
-
-  /**
-   * Submit a portfolio/work URL for a specific skill (+15 trust pts).
-   * Accepts any valid URL — deployed contract, report, GitHub repo, etc.
-   * Sets skill status to "partial" if not already "verified" via challenge.
-   * Requires agentId to be set on the client (x-agent-id auth).
-   */
-  async submitSkillPortfolio(skill: string, portfolioUrl: string, agentId?: string): Promise<{ success: boolean; trustScore: number; status: string }> {
-    return this.post(`/agents/${agentId ?? this.agentId}/skills/${encodeURIComponent(skill)}/portfolio`, { portfolioUrl });
-  }
-
-  // ─── REPUTATION MIGRATION ──────────────────────────────────────────────────
-
-  async migrateReputation(oldAgentId: string, oldWallet: string, newWallet: string, newAgentId: string): Promise<{ success: boolean }> {
-    return this.post(`/agents/${oldAgentId}/inherit-reputation`, { oldWallet, newWallet, newAgentId });
-  }
-
-  async getMigrationStatus(agentId?: string): Promise<Record<string, unknown>> {
-    return this.get(`/agents/${agentId ?? this.agentId}/migration-status`);
+    return entry.result;
+  }
+
+  private setCache(key: string, result: TrustCheckResponse): void {
+    this.cache.set(key, { result, expiry: Date.now() + this.cacheTtl });
+  }
+
+  clearCache(): void {
+    this.cache.clear();
+  }
+
+  private getHeaders(apiKey?: string): Record<string, string> {
+    const headers: Record<string, string> = { Accept: "application/json" };
+    const key = apiKey || this.defaultApiKey;
+    if (key) {
+      headers["Authorization"] = `Bearer ${key}`;
+    }
+    return headers;
+  }
+
+  async checkTrust(wallet: string, options?: TrustCheckOptions): Promise<TrustCheckResponse> {
+    const cacheKey = this.getCacheKey(wallet, options);
+    const cached = this.getCached(cacheKey);
+    if (cached) return cached;
+
+    const params = new URLSearchParams();
+    if (options?.verifyOnChain) params.set("verifyOnChain", "true");
+    if (options?.minScore !== undefined) params.set("minScore", String(options.minScore));
+    if (options?.maxRisk !== undefined) params.set("maxRisk", String(options.maxRisk));
+    if (options?.minBond !== undefined) params.set("minBond", String(options.minBond));
+    if (options?.noActiveDisputes !== undefined) params.set("noActiveDisputes", String(options.noActiveDisputes));
+    const qs = params.toString();
+    const url = `${this.baseUrl}/api/trust-check/${encodeURIComponent(wallet)}${qs ? `?${qs}` : ""}`;
+
+    const headers = this.getHeaders(options?.apiKey);
+
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        const res = await fetch(url, { headers });
+
+        if (!res.ok) {
+          if (res.status === 404) {
+            const result: TrustCheckResponse = {
+              hireable: false,
+              score: 0,
+              confidence: 0,
+              reason: "Agent not found",
+              riskIndex: 0,
+              bonded: false,
+              bondTier: "UNBONDED",
+              availableBond: 0,
+              performanceScore: 0,
+              bondReliability: 0,
+              cleanStreakDays: 0,
+              fusedScoreVersion: "v2",
+              weights: { onChain: 0.45, moltbook: 0.25, performance: 0.20, bondReliability: 0.10 },
+              details: {},
+            };
+            this.setCache(cacheKey, result);
+            return result;
+          }
+          if (res.status === 429) {
+            lastError = new Error("Rate limited");
+            if (attempt < MAX_RETRIES - 1) {
+              await this.sleep(RETRY_DELAYS[attempt]);
+              continue;
+            }
+          }
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const result = (await res.json()) as TrustCheckResponse;
+        this.setCache(cacheKey, result);
+        return result;
+      } catch (err) {
+        lastError = err;
+        if (attempt < MAX_RETRIES - 1) {
+          await this.sleep(RETRY_DELAYS[attempt]);
+        }
+      }
+    }
+
+    console.error("ClawTrust check failed after retries:", lastError);
+    return {
+      hireable: false,
+      score: 0,
+      confidence: 0,
+      reason: "Service unavailable or network error",
+      riskIndex: 0,
+      bonded: false,
+      bondTier: "UNBONDED",
+      availableBond: 0,
+      performanceScore: 0,
+      bondReliability: 0,
+      cleanStreakDays: 0,
+      fusedScoreVersion: "v2",
+      weights: { onChain: 0.45, moltbook: 0.25, performance: 0.20, bondReliability: 0.10 },
+      details: {},
+    };
+  }
+
+  async checkBond(wallet: string, apiKey?: string): Promise<BondCheckResponse> {
+    const url = `${this.baseUrl}/api/bonds/status/${encodeURIComponent(wallet)}`;
+    const headers = this.getHeaders(apiKey);
+
+    try {
+      const res = await fetch(url, { headers });
+      if (!res.ok) {
+        if (res.status === 404) {
+          return {
+            bonded: false,
+            bondTier: "UNBONDED",
+            availableBond: 0,
+            totalBonded: 0,
+            lockedBond: 0,
+            slashedBond: 0,
+            bondReliability: 0,
+          };
+        }
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      return {
+        bonded: data.totalBonded > 0,
+        bondTier: data.bondTier || "UNBONDED",
+        availableBond: data.availableBond ?? 0,
+        totalBonded: data.totalBonded ?? 0,
+        lockedBond: data.lockedBond ?? 0,
+        slashedBond: data.slashedBond ?? 0,
+        bondReliability: data.bondReliability ?? 0,
+      };
+    } catch (err) {
+      console.error("ClawTrust bond check failed:", err);
+      return {
+        bonded: false,
+        bondTier: "UNBONDED",
+        availableBond: 0,
+        totalBonded: 0,
+        lockedBond: 0,
+        slashedBond: 0,
+        bondReliability: 0,
+      };
+    }
+  }
+
+  async getRisk(wallet: string, apiKey?: string): Promise<RiskCheckResponse> {
+    const url = `${this.baseUrl}/api/risk/wallet/${encodeURIComponent(wallet)}`;
+    const headers = this.getHeaders(apiKey);
+
+    try {
+      const res = await fetch(url, { headers });
+      if (!res.ok) {
+        if (res.status === 404) {
+          return {
+            riskIndex: 0,
+            riskLevel: "low",
+            cleanStreakDays: 0,
+            factors: { slashCount: 0, failedGigRatio: 0, activeDisputes: 0, inactivityDecay: 0, bondDepletion: 0 },
+          };
+        }
+        throw new Error(`HTTP ${res.status}`);
+      }
+      return (await res.json()) as RiskCheckResponse;
+    } catch (err) {
+      console.error("ClawTrust risk check failed:", err);
+      return {
+        riskIndex: 0,
+        riskLevel: "low",
+        cleanStreakDays: 0,
+        factors: { slashCount: 0, failedGigRatio: 0, activeDisputes: 0, inactivityDecay: 0, bondDepletion: 0 },
+      };
+    }
+  }
+
+  async getPassport(agentId: string, apiKey?: string): Promise<any> {
+    const url = `${this.baseUrl}/api/agents/${encodeURIComponent(agentId)}`;
+    const headers = this.getHeaders(apiKey);
+    try {
+      const res = await fetch(url, { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error("ClawTrust getPassport failed:", err);
+      return null;
+    }
+  }
+
+  async getEarnings(agentId: string, apiKey?: string): Promise<any> {
+    const url = `${this.baseUrl}/api/agents/${encodeURIComponent(agentId)}/earnings`;
+    const headers = this.getHeaders(apiKey);
+    try {
+      const res = await fetch(url, { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error("ClawTrust getEarnings failed:", err);
+      return null;
+    }
+  }
+
+  async discoverGigs(filters?: { skills?: string; minBudget?: number; maxBudget?: number; chain?: string; currency?: string; sortBy?: string }, apiKey?: string): Promise<any> {
+    const params = new URLSearchParams();
+    if (filters?.skills) params.set("skills", filters.skills);
+    if (filters?.minBudget) params.set("minBudget", String(filters.minBudget));
+    if (filters?.maxBudget) params.set("maxBudget", String(filters.maxBudget));
+    if (filters?.chain) params.set("chain", filters.chain);
+    if (filters?.currency) params.set("currency", filters.currency);
+    if (filters?.sortBy) params.set("sortBy", filters.sortBy);
+    const qs = params.toString();
+    const url = `${this.baseUrl}/api/gigs/discover${qs ? `?${qs}` : ""}`;
+    const headers = this.getHeaders(apiKey);
+    try {
+      const res = await fetch(url, { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error("ClawTrust discoverGigs failed:", err);
+      return { gigs: [], total: 0 };
+    }
+  }
+
+  async postGig(gigData: { title: string; description: string; budget: number; currency: string; chain: string; skills?: string[]; bondRequired?: number }, walletAddress: string, apiKey?: string): Promise<any> {
+    const url = `${this.baseUrl}/api/gigs`;
+    const headers = { ...this.getHeaders(apiKey), "Content-Type": "application/json", "x-wallet-address": walletAddress };
+    try {
+      const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(gigData) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error("ClawTrust postGig failed:", err);
+      return null;
+    }
+  }
+
+  async applyToGig(gigId: string, agentId: string, proposal: string, walletAddress: string, apiKey?: string): Promise<any> {
+    const url = `${this.baseUrl}/api/gigs/${encodeURIComponent(gigId)}/apply`;
+    const headers = { ...this.getHeaders(apiKey), "Content-Type": "application/json", "x-wallet-address": walletAddress, "x-agent-id": agentId };
+    try {
+      const res = await fetch(url, { method: "POST", headers, body: JSON.stringify({ agentId, proposal }) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error("ClawTrust applyToGig failed:", err);
+      return null;
+    }
+  }
+
+  async submitDeliverable(gigId: string, data: { deliverableUrl: string; deliverableNote?: string; requestValidation?: boolean }, walletAddress: string, agentId: string, apiKey?: string): Promise<any> {
+    const url = `${this.baseUrl}/api/gigs/${encodeURIComponent(gigId)}/submit-deliverable`;
+    const headers = { ...this.getHeaders(apiKey), "Content-Type": "application/json", "x-wallet-address": walletAddress, "x-agent-id": agentId };
+    try {
+      const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(data) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error("ClawTrust submitDeliverable failed:", err);
+      return null;
+    }
+  }
+
+  async sendHeartbeat(agentId: string, walletAddress: string, apiKey?: string): Promise<any> {
+    const url = `${this.baseUrl}/api/agent-heartbeat`;
+    const headers = { ...this.getHeaders(apiKey), "Content-Type": "application/json", "x-wallet-address": walletAddress, "x-agent-id": agentId };
+    try {
+      const res = await fetch(url, { method: "POST", headers, body: JSON.stringify({}) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error("ClawTrust heartbeat failed:", err);
+      return null;
+    }
+  }
+
+  async applyToGig(gigId: string, agentId: string, message?: string): Promise<any> {
+    const url = `${this.baseUrl}/api/gigs/${encodeURIComponent(gigId)}/apply`;
+    const headers = { ...this.getHeaders(), "Content-Type": "application/json", "x-agent-id": agentId };
+    try {
+      const res = await fetch(url, { method: "POST", headers, body: JSON.stringify({ message: message || "Applying for this gig." }) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error("ClawTrust applyToGig failed:", err);
+      return null;
+    }
+  }
+
+  async submitWork(gigId: string, agentId: string, description: string, proofUrl?: string): Promise<any> {
+    const url = `${this.baseUrl}/api/swarm/validate`;
+    const headers = { ...this.getHeaders(), "Content-Type": "application/json", "x-agent-id": agentId };
+    try {
+      const res = await fetch(url, { method: "POST", headers, body: JSON.stringify({ gigId, assigneeId: agentId, description, proofUrl }) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error("ClawTrust submitWork failed:", err);
+      return null;
+    }
+  }
+
+  async castVote(validationId: string, voterId: string, vote: "approve" | "reject", reasoning?: string): Promise<any> {
+    const url = `${this.baseUrl}/api/validations/vote`;
+    const headers = { ...this.getHeaders(), "Content-Type": "application/json", "x-agent-id": voterId };
+    try {
+      const res = await fetch(url, { method: "POST", headers, body: JSON.stringify({ validationId, voterId, vote, reasoning }) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error("ClawTrust castVote failed:", err);
+      return null;
+    }
+  }
+
+  async getErc8004(handle: string): Promise<any> {
+    const url = `${this.baseUrl}/api/agents/${encodeURIComponent(handle)}/erc8004`;
+    try {
+      const res = await fetch(url, { headers: this.getHeaders() });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error("ClawTrust getErc8004 failed:", err);
+      return null;
+    }
+  }
+
+  async getErc8004ByTokenId(tokenId: string | number): Promise<any> {
+    const url = `${this.baseUrl}/api/erc8004/${encodeURIComponent(String(tokenId))}`;
+    try {
+      const res = await fetch(url, { headers: this.getHeaders() });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error("ClawTrust getErc8004ByTokenId failed:", err);
+      return null;
+    }
+  }
+
+  async checkTrustBatch(
+    wallets: string[],
+    options?: TrustCheckOptions,
+  ): Promise<Record<string, TrustCheckResponse>> {
+    const results: Record<string, TrustCheckResponse> = {};
+    const batchSize = 5;
+
+    for (let i = 0; i < wallets.length; i += batchSize) {
+      const batch = wallets.slice(i, i + batchSize);
+      const promises = batch.map(async (w) => {
+        results[w] = await this.checkTrust(w, options);
+      });
+      await Promise.all(promises);
+    }
+
+    return results;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
-
-export default ClawTrustClient;
