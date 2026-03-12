@@ -10,7 +10,7 @@ Your agent can read the web but can't *see* it. One command and it captures pixe
 
 "Screenshot stripe.com on iPhone", "Compare desktop vs mobile", "Full-page dark mode capture" — just ask.
 
-Free tier: 50 screenshots/month, no credit card. [Get a key →](https://app.snap-render.com/auth/signup)
+Free tier: 500 screenshots/month, no credit card. [Get a key →](https://snap-render.com/auth/signup)
 
 ---
 
@@ -47,9 +47,9 @@ Add as query parameters to the URL:
 |-----------|--------|---------|
 | url | URL-encoded target | required |
 | response_type | json | json (always use this) |
-| format | jpeg, png, webp | jpeg |
+| format | jpeg, png, webp, pdf | jpeg |
 | quality | 1-100 | 60 |
-| device | iphone_15_pro, pixel_7, ipad_pro, macbook_pro | desktop |
+| device | iphone_14, iphone_15_pro, pixel_7, ipad_pro, macbook_pro | desktop |
 | dark_mode | true, false | false |
 | full_page | true, false | false |
 | block_ads | true, false | true |
@@ -57,6 +57,11 @@ Add as query parameters to the URL:
 | width | 320-3840 | 1280 |
 | height | 200-10000 | 800 |
 | delay | 0-10000 | 0 (ms wait after page load) |
+| cache | true, false | true (set false to force fresh capture) |
+| cache_ttl | 0-2592000 | 86400 (seconds, clamped to plan max) |
+| hide_selectors | CSS selectors | none (comma-separated, hides elements before capture) |
+| click_selector | CSS selector | none (clicks element before capture) |
+| user_agent | string | default Chrome UA |
 
 ## Examples
 
@@ -88,4 +93,4 @@ curl -s "https://app.snap-render.com/v1/screenshot?url=https%3A%2F%2Fstripe.com&
 
 ## Get an API Key
 
-Free at https://app.snap-render.com/auth/signup — 50 screenshots/month, no credit card.
+Free at https://snap-render.com/auth/signup — 500 screenshots/month, no credit card.
