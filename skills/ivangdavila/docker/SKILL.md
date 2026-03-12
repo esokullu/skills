@@ -1,29 +1,16 @@
 ---
-name: Docker (Essentials + Advanced)
+name: Docker
 slug: docker
-version: 1.0.3
+version: 1.0.4
 homepage: https://clawic.com/skills/docker
-description: Build, secure, and deploy Docker containers with image optimization, networking, and production-ready patterns.
-changelog: Added essential commands reference and production patterns
+description: "Docker containers, images, Compose stacks, networking, volumes, debugging, production hardening, and the commands that keep real environments stable. Use when (1) the task touches Docker, Dockerfiles, images, containers, or Compose; (2) build reliability, runtime behavior, logs, ports, volumes, or security matter; (3) the agent needs Docker guidance and should apply it by default."
+changelog: Simplified the skill name and kept the stateless activation guidance
 metadata: {"clawdbot":{"emoji":"🐳","requires":{"bins":["docker"]},"os":["linux","darwin","win32"]}}
 ---
 
-## Setup
-
-On first use, read `setup.md` for user preference guidelines.
-
 ## When to Use
 
-User needs Docker expertise. Agent handles containers, images, Compose, networking, volumes, and production deployment.
-
-## Architecture
-
-Memory in `~/docker/`. See `memory-template.md` for structure.
-
-```
-~/docker/
-└── memory.md    # Preferences and context
-```
+Use when the task involves Docker, Dockerfiles, container builds, Compose, image publishing, networking, volumes, logs, debugging, or production container operations. This skill is stateless and should be applied directly whenever Docker work appears.
 
 ## Quick Reference
 
@@ -34,8 +21,6 @@ Memory in `~/docker/`. See `memory-template.md` for structure.
 | Compose orchestration | `compose.md` |
 | Networking & volumes | `infrastructure.md` |
 | Security hardening | `security.md` |
-| Setup | `setup.md` |
-| Memory | `memory-template.md` |
 
 ## Core Rules
 
