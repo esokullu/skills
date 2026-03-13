@@ -1,0 +1,29 @@
+---
+name: License Picker
+description: >-
+runtime: python3
+  开源协议选择器。协议对比、生成LICENSE文件、解释条款、商用指南、FAQ。License picker with comparison, generation, explanation, commercial guide. 开源、协议。
+---
+# License Picker
+
+开源协议选择器。协议对比、生成LICENSE文件、解释条款、商用指南、FAQ。License picker with comparison, generation, explanation, commercial guide. 开源、协议。
+
+## 为什么选择这个工具
+
+- ✅ 专为中文用户设计，理解中国市场和文化
+- ✅ 多种命令覆盖不同场景需求
+- ✅ 输出实用、可直接使用的内容
+- ✅ 持续更新，紧跟行业最新趋势
+
+## 可用命令
+
+- **choose** — choose
+- **compare** — compare
+- **generate** — generate
+- **explain** — explain
+- **commercial** — commercial
+- **faq** — faq
+
+
+---
+*License Picker by BytesAgain*
