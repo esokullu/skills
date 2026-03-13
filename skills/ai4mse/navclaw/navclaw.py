@@ -2,7 +2,6 @@
 """
 NavClaw — 个人出行AI导航助手 / OpenSource Intelligent Route Planner for OpenClaw & More
 
-🌐 https://navclaw.com (Reserved for Github Page)
 📦 https://github.com/AI4MSE/NavClaw
 
 所有用户可调参数集中于此，修改后无需改动任何 Python 代码。
