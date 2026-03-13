@@ -1,13 +1,18 @@
 {
   "owner": "linfangw",
   "slug": "qveris-official",
-  "displayName": "Official QVeris Skill",
+  "displayName": "QVeris Official",
   "latest": {
-    "version": "1.0.4",
-    "publishedAt": 1772450644787,
-    "commit": "https://github.com/openclaw/skills/commit/ace2a21febd4041a54bca40a50f281455b8281a2"
+    "version": "1.0.8",
+    "publishedAt": 1773290444606,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.4",
+      "publishedAt": 1772450644787,
+      "commit": "https://github.com/openclaw/skills/commit/ace2a21febd4041a54bca40a50f281455b8281a2"
+    },
     {
       "version": "1.0.2",
       "publishedAt": 1772328003651,
