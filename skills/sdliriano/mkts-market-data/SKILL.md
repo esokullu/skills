@@ -58,7 +58,7 @@ curl -s -H "X-API-Key: $MKTS_API_KEY" https://mkts.io/api/v1/asset/BTC
 ```
 
 ### Live Quote (Real-time)
-Get a fresh quote directly from Yahoo Finance or CoinGecko (60s cache, stricter rate limits):
+Get a fresh quote directly from Yahoo Finance or CoinGecko (shared 60s cache, stricter rate limits):
 ```bash
 # Auto-detect source
 curl -s -H "X-API-Key: $MKTS_API_KEY" https://mkts.io/api/v1/asset/AAPL/live
@@ -176,9 +176,92 @@ curl -s -H "X-API-Key: $MKTS_API_KEY" https://mkts.io/api/v1/asset/AAPL/details
 curl -s -H "X-API-Key: $MKTS_API_KEY" https://mkts.io/api/v1/asset/SPY/details
 ```
 
-Stocks and ETFs only — crypto, commodities, and forex are not supported. Real-time Yahoo Finance call with 60s cache (counts against live rate limits).
+Stocks and ETFs only — crypto, commodities, and forex are not supported. Real-time Yahoo Finance call with a shared 60s DynamoDB-backed cache (counts against live rate limits).
 
 Returns a rich object with: `symbol`, `name`, `description`, `website`, `industry`, `sector`, `employees`, `headquarters`, `executives`, `trailingPE`, `forwardPE`, `dividendYield`, `beta`, `fiftyTwoWeekHigh`, `fiftyTwoWeekLow`, `targetPrice`, `recommendationKey`, `numberOfAnalysts`, `totalRevenue`, `revenueGrowth`, `grossMargins`, `operatingMargins`, `profitMargins`, `ebitda`, `returnOnAssets`, `returnOnEquity`, `totalCash`, `totalDebt`, `debtToEquity`, `freeCashflow`, `operatingCashflow`, `currentRatio`, `earningsGrowth`, `revenuePerShare`, `earningsQuarterly`, `earningsYearly`, `forwardEstimates`, `insidersPercentHeld`, `institutionsPercentHeld`, `topInstitutionalHolders`, `insiderTransactions`, `netSharePurchaseActivity`, `recommendationTrend`, `upgradeDowngradeHistory`, `calendarEvents`, `secFilings`. ETFs additionally include `fundFamily`, `category`, and `topHoldings` (holdings array, sector weightings, equity holdings ratios).
+
+### SEC Filings
+Get filings directly without pulling the full company details payload:
+```bash
+# Latest filings
+curl -s -H "X-API-Key: $MKTS_API_KEY" https://mkts.io/api/v1/asset/AAPL/filings
+
+# Filter by form type
+curl -s -H "X-API-Key: $MKTS_API_KEY" "https://mkts.io/api/v1/asset/AAPL/filings?type=10-K&limit=5"
+```
+
+Query params: `type` (optional SEC form type, e.g. `10-K`, `10-Q`, `8-K`), `limit` (1-50, default 20). Backed by a shared 5-minute DynamoDB cache per symbol.
+
+Returns `{ symbol, count, filings, fetchedAt }`. Each filing has `date`, `type`, `title`, and `edgarUrl`.
+
+### Filings Search
+Search filings across a bounded stock or ETF universe:
+```bash
+# Latest large-cap 8-Ks
+curl -s -H "X-API-Key: $MKTS_API_KEY" \
+  "https://mkts.io/api/v1/filings/search?filingType=8-K&minMarketCap=10000000000&limit=20"
+
+# Tech 10-Qs with title keyword filtering
+curl -s -H "X-API-Key: $MKTS_API_KEY" \
+  "https://mkts.io/api/v1/filings/search?sector=technology&filingType=10-Q&title=earnings&dateFrom=2026-01-01"
+```
+
+Query params: `type` (`stock` or `etf`, default `stock`), `sector`, `search`, `symbols`, `filingType`, `title`, `minMarketCap`, `maxMarketCap`, `dateFrom`, `dateTo`, `limit`, `universe`.
+
+`symbols` is capped at 25 tickers. `universe` is bounded by tier: keyless `10`, free key `40`, premium `150`. `dateFrom` and `dateTo` use `YYYY-MM-DD`. The endpoint uses your snapshot to define the candidate universe, then fetches filings live from Yahoo Finance with a shared per-symbol cache and a shared short-lived result cache.
+
+Returns `{ results, total, limit, scanned, universe, source }`. Each result includes `symbol`, `name`, `sector`, `marketCap`, and a nested `filing` object with `date`, `type`, `title`, and `edgarUrl`. Response headers include `X-Query-Cache` (`hit` or `miss`) and `X-Query-Universe` (effective capped universe).
+
+### Trending / Market Highlights
+Get the most active stocks, top gainers, and top losers from Yahoo Finance screener (pre-cached, updated every 30 minutes):
+```bash
+# All sections
+curl -s -H "X-API-Key: $MKTS_API_KEY" https://mkts.io/api/v1/trending
+
+# Just gainers
+curl -s -H "X-API-Key: $MKTS_API_KEY" "https://mkts.io/api/v1/trending?section=gainers"
+
+# Limit to top 5 per section
+curl -s -H "X-API-Key: $MKTS_API_KEY" "https://mkts.io/api/v1/trending?count=5"
+```
+
+Query params: `section` (trending|gainers|losers — omit for all), `count` (1-50, limits results per section).
+
+Returns `{ trending, gainers, losers, fetchedAt }`. Each item has `symbol`, `shortName`, `price`, `change`, `changePct`, `volume`, `marketCap`. US equities only. Snapshot endpoint (not live), no extra Yahoo calls.
+
+### Fundamentals Time Series
+Get historical financial statements (income statement, balance sheet, cash flow) with computed margins:
+```bash
+# Annual fundamentals (default: last 5 years, all statements)
+curl -s -H "X-API-Key: $MKTS_API_KEY" https://mkts.io/api/v1/asset/AAPL/fundamentals
+
+# Quarterly income statement
+curl -s -H "X-API-Key: $MKTS_API_KEY" "https://mkts.io/api/v1/asset/MSFT/fundamentals?type=quarterly&module=financials"
+```
+
+Query params: `type` (annual|quarterly, default annual), `module` (all|financials|balance-sheet|cash-flow, default all).
+
+Stocks and ETFs only — crypto, commodities, and forex are not supported. Real-time Yahoo Finance call with a shared 60s DynamoDB-backed cache (counts against live rate limits).
+
+Returns `{ symbol, type, module, periods, fetchedAt }`. Each period has: `date`, `periodLabel`, `revenue`, `costOfRevenue`, `grossProfit`, `operatingIncome`, `netIncome`, `ebitda`, `eps`, `grossMargin`, `operatingMargin`, `netMargin`, `totalAssets`, `totalLiabilities`, `stockholdersEquity`, `totalDebt`, `cashAndEquivalents`, `workingCapital`, `operatingCashFlow`, `capitalExpenditure`, `freeCashFlow`. Margins are decimals (0.35 = 35%). Periods are sorted chronologically (oldest first).
+
+### Fundamentals Screener
+Screen stocks or ETFs using valuation, profitability, growth, leverage, liquidity, and cash-flow metrics:
+```bash
+# Profitable large-cap tech with strong margins
+curl -s -H "X-API-Key: $MKTS_API_KEY" \
+  "https://mkts.io/api/v1/fundamentals/screen?sector=technology&minMarketCap=10000000000&minGrossMargin=0.50&minOperatingMargin=0.20&sort=revenueGrowth"
+
+# ETFs with positive analyst upside
+curl -s -H "X-API-Key: $MKTS_API_KEY" \
+  "https://mkts.io/api/v1/fundamentals/screen?type=etf&minTargetPriceUpside=0.05&sort=targetPriceUpside"
+```
+
+Query params: `type` (`stock` or `etf`, default `stock`), `sector`, `search`, `symbols`, `limit`, `universe`, `sort`, `dir`, `minMarketCap`, `maxMarketCap`, `minTrailingPE`, `maxTrailingPE`, `minForwardPE`, `maxForwardPE`, `minRevenueGrowth`, `maxRevenueGrowth`, `minGrossMargin`, `maxGrossMargin`, `minOperatingMargin`, `maxOperatingMargin`, `minProfitMargin`, `maxProfitMargin`, `minReturnOnEquity`, `maxReturnOnEquity`, `minReturnOnAssets`, `maxReturnOnAssets`, `minDebtToEquity`, `maxDebtToEquity`, `minCurrentRatio`, `maxCurrentRatio`, `minDividendYield`, `maxDividendYield`, `minFreeCashflow`, `maxFreeCashflow`, `minTotalRevenue`, `maxTotalRevenue`, `minEarningsGrowth`, `maxEarningsGrowth`, `minTargetPriceUpside`, `maxTargetPriceUpside`.
+
+`symbols` is capped at 25 tickers. `universe` is bounded by tier: keyless `10`, free key `40`, premium `150`. Margin, yield, growth, and upside fields are decimals (`0.20 = 20%`). The screener enriches a capped snapshot universe with shared-cache company details, then filters and sorts the enriched set. Query results also use a shared short-lived result cache.
+
+Returns `{ results, total, limit, scanned, universe, source }`. Each result includes snapshot fields plus valuation, growth, profitability, leverage, and analyst fields. Response headers include `X-Query-Cache` (`hit` or `miss`) and `X-Query-Universe` (effective capped universe).
 
 ### Options Chain
 Get the options chain for a stock or ETF (calls, puts, open interest, implied volatility, expirations):
@@ -190,7 +273,7 @@ curl -s -H "X-API-Key: $MKTS_API_KEY" https://mkts.io/api/v1/asset/AAPL/options
 curl -s -H "X-API-Key: $MKTS_API_KEY" "https://mkts.io/api/v1/asset/AAPL/options?expiration=2026-03-21"
 ```
 
-Stocks and ETFs only — crypto, commodities, and forex are not supported. Real-time Yahoo Finance call with 60s cache (counts against live rate limits).
+Stocks and ETFs only — crypto, commodities, and forex are not supported. Real-time Yahoo Finance call with a shared 60s DynamoDB-backed cache (counts against live rate limits).
 
 Returns `symbol`, `expirations` (array of available dates), `selectedExpiration`, `lastPrice`, `calls`, `puts`, and `summary` (totalCallOI, totalPutOI, putCallRatio, totalCallVolume, totalPutVolume). Each contract has `strike`, `lastPrice`, `bid`, `ask`, `change`, `percentChange`, `volume`, `openInterest`, `impliedVolatility`, `inTheMoney`, `expiration`, `contractSymbol`.
 
@@ -387,4 +470,6 @@ POST body: `{ "q": "your question" }` (max 500 chars). Returns `{ query, action,
 - Use `/v1/macro` for a quick macro dashboard — BTC, ETH, S&P 500, Nasdaq, Gold, Oil, DXY, VIX, and 10Y in one call
 - Use `/v1/asset/{symbol}/details` for deep fundamental analysis — earnings, analyst targets, insider activity, SEC filings, and ETF holdings in one call
 - Use `/v1/asset/{symbol}/options` for derivatives analysis — get the full options chain with calls, puts, OI, IV, and all available expirations. Combine with `/v1/asset/{symbol}/live` for delta-neutral strategies
+- Use `/v1/trending` for live market movers — most active, top gainers, top losers. Pre-cached from Yahoo screener, no live rate limit cost. Filter by `?section=gainers` or limit with `?count=5`
+- Use `/v1/asset/{symbol}/fundamentals` for historical financial analysis — revenue trends, margin evolution, balance sheet health over 5 years. Use `?type=quarterly` for recent quarter-by-quarter trends
 - Use `POST /v1/ask` for complex natural language queries — it parses intent and routes to the right data. Requires API key, counts against AI daily limit

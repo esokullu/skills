@@ -3,11 +3,16 @@
   "slug": "mkts-market-data",
   "displayName": "mkts Market Data",
   "latest": {
-    "version": "1.0.10",
-    "publishedAt": 1772231495779,
-    "commit": "https://github.com/openclaw/skills/commit/1fb39cd17e6a3145c86156e34b4a1c576116342d"
+    "version": "1.0.11",
+    "publishedAt": 1773168829568,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.10",
+      "publishedAt": 1772231495779,
+      "commit": "https://github.com/openclaw/skills/commit/1fb39cd17e6a3145c86156e34b4a1c576116342d"
+    },
     {
       "version": "1.0.8",
       "publishedAt": 1772157744777,
